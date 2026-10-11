@@ -92,7 +92,7 @@ export async function printLabel(data: LabelPrintData): Promise<void> {
       supplier: data.supplier,
       qr: data.qr,
     },
-    { copies: 1, printName: "logisys" }
+    { copies: 1, printName: "logisys", ignoreMissingKeys: true }
   );
   if (!ok) throw new Error("プリンターに印刷データを送信できませんでした");
 }
