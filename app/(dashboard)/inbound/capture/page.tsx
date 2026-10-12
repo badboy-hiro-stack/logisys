@@ -207,6 +207,28 @@ export default function CapturePage() {
     });
   }
 
+    // 店舗の行を削除する
+  function removeStoreQty(li: number, si: number) {
+    if (!result) return;
+    const next = result.lines[li].store_qty.filter((_, i) => i !== si);
+    updateLine(li, { store_qty: next });
+  }
+
+  // 店舗の行を追加する(まだ使っていない店舗を、最初の候補にする)
+  function addStoreQty(li: number) {
+    if (!result) return;
+    const line = result.lines[li];
+    const used = new Set(line.store_qty.map((s) => s.store_code));
+    const candidate = STORES.find((s) => !used.has(s.code)) ?? STORES[0];
+    const last = line.store_qty[line.store_qty.length - 1];
+    updateLine(li, {
+      store_qty: [
+        ...line.store_qty,
+        { store_code: candidate.code, pack_size: last?.pack_size ?? 0, case_count: 0 },
+      ],
+    });
+  }
+
   // EOSコードを手で直したとき、入力欄から離れたタイミングでマスタを再照合する
   async function handleEosBlur(lineIndex: number) {
     const target = result?.lines[lineIndex];
@@ -575,9 +597,24 @@ export default function CapturePage() {
                             title="箱数"
                             className={NUM_INPUT + " w-14"}
                           />
+                          <button
+                            type="button"
+                            onClick={() => removeStoreQty(li, si)}
+                            title="この店舗の行を削除"
+                            className="ml-1 text-gray-400 hover:text-red-600 font-bold px-1"
+                          >
+                            ✕
+                          </button>
                         </div>
                       ))}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => addStoreQty(li)}
+                      className="mt-1 text-xs text-blue-600 hover:underline"
+                    >
+                      + 店舗を追加
+                    </button>
                   </div>
                 );
               })}
