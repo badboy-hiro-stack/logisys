@@ -68,17 +68,29 @@ type OcrErrorDetail = {
   raw_tail?: string;
 };
 
-function fileToBase64(file: File): Promise<{ data: string; mediaType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const [, base64] = result.split(",");
-      resolve({ data: base64, mediaType: file.type });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+// 画像を長辺2000px・JPEGに縮小してから送る(Vercelの送信サイズ上限を超えないようにするため)
+async function fileToBase64(file: File): Promise<{ data: string; mediaType: string }> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("画像を読み込めませんでした"));
+      i.src = url;
+    });
+    const MAX = 2000;
+    const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("画像を処理できませんでした");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    return { data: dataUrl.split(",")[1], mediaType: "image/jpeg" };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 // 店舗別数量から実個数の合計を計算する(自動検算用)
@@ -141,7 +153,13 @@ export default function CapturePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: data, mediaType }),
       });
-      const json = await res.json();
+      const text = await res.text();
+      let json: any;
+      try {
+	json = JSON.parse(text);
+      } catch {
+	throw new Error(`サーバーの応答が不正です(HTTP ${res.status}): ${text.slice(0, 150)}`);
+      }
       if (!res.ok) {
         setErrorDetail(json as OcrErrorDetail);
       } else {
