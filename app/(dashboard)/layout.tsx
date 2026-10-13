@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { href: "/progress", label: "本日の進捗" },
   { href: "/inbound", label: "入荷・ラベル発行" },
   { href: "/outbound", label: "出荷検品" },
+  { href: "/labels/reissue", label: "ラベル再発行" },
   { href: "/reports", label: "当日変更・欠品 報告" },
   { href: "/master", label: "マスタ管理" },
 ];
