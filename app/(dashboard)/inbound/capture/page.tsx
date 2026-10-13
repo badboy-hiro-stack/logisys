@@ -139,6 +139,7 @@ export default function CapturePage() {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";          // ← 追加(同じ写真を続けて選んでも反応するようにする)
 
     setErrorDetail(null);
     setSaveError(null);
@@ -156,9 +157,9 @@ export default function CapturePage() {
       const text = await res.text();
       let json: any;
       try {
-	json = JSON.parse(text);
+	      json = JSON.parse(text);
       } catch {
-	throw new Error(`サーバーの応答が不正です(HTTP ${res.status}): ${text.slice(0, 150)}`);
+	      throw new Error(`サーバーの応答が不正です(HTTP ${res.status}): ${text.slice(0, 150)}`);
       }
       if (!res.ok) {
         setErrorDetail(json as OcrErrorDetail);
@@ -380,13 +381,38 @@ export default function CapturePage() {
         <label className="block text-sm font-medium mb-2">
           伝票の写真を選択(カメラ撮影 または 既存ファイル)
         </label>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="text-sm"
-        />
+        <div className="flex flex-wrap gap-2">
+          {/* スマホ内の写真・ファイルから選ぶ */}
+          <input
+            id="ocr-file"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <label
+            htmlFor="ocr-file"
+            className="cursor-pointer inline-block bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            ファイルから選ぶ
+          </label>
+
+          {/* その場でカメラ撮影する */}
+          <input
+            id="ocr-camera"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <label
+            htmlFor="ocr-camera"
+            className="cursor-pointer inline-block bg-white border border-blue-600 text-blue-600 text-sm px-4 py-2 rounded-lg hover:bg-blue-50"
+          >
+            カメラで撮影
+          </label>
+        </div>
         {loading && (
           <p className="text-sm text-gray-500 mt-4">
             AIが読み取り中です…(数十秒〜2分ほどかかる場合があります)
