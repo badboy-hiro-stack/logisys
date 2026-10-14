@@ -49,6 +49,7 @@ type Fresh = {
   arrivals: ArrivalFull[];
   labels: LabelRow[];
   stores: Record<string, StoreInfo>;
+  originByRow: Record<number, string>; // 店舗ごとの指定産地(空なら明細行の産地を使う)
 };
 type PendingPrint = { label_id: string; data: LabelPrintData };
 type Message = { type: "ok" | "error"; text: string };
@@ -118,7 +119,7 @@ export default function LineDetailPage() {
     const [sq, ar, st] = await Promise.all([
       supabase
         .from("t_order_line_store_qty")
-        .select("id, store_code, pack_size, case_count")
+        .select("id, store_code, pack_size, case_count, origin")
         .eq("order_line_id", lineId),
       supabase
         .from("t_arrivals")
@@ -132,6 +133,10 @@ export default function LineDetailPage() {
     if (st.error) throw new Error("店舗マスタの取得に失敗しました: " + st.error.message);
 
     const rows = sortBySlipOrder((sq.data ?? []) as unknown as StoreQtyRow[]);
+    const originByRow: Record<number, string> = {};
+    ((sq.data ?? []) as unknown as { id: number; origin: string | null }[]).forEach((r) => {
+      if (r.origin) originByRow[r.id] = r.origin;
+    });
     const arrivals = (ar.data ?? []) as unknown as ArrivalFull[];
     const stores: Record<string, StoreInfo> = {};
     ((st.data ?? []) as unknown as { store_code: string; store_name: string; sign: string | null }[]).forEach(
@@ -154,7 +159,7 @@ export default function LineDetailPage() {
       labels = (lb.data ?? []) as unknown as LabelRow[];
     }
 
-    return { line, rows, arrivals, labels, stores };
+    return { line, rows, arrivals, labels, stores, originByRow };
   }, [supabase, lineId]);
 
   // 入荷状態を計算し、変わっていればDBに保存したうえで、画面に反映する
@@ -222,7 +227,7 @@ export default function LineDetailPage() {
       item: fresh.line.item_name,
       store: formatStoreLabel(store?.store_name ?? row.store_code, store?.sign),
       qty: `${row.pack_size}×${cases}`,
-      origin: fresh.line.origin ?? "",
+      origin: fresh.originByRow[row.id] ?? fresh.line.origin ?? "",
       spec: fresh.line.spec ?? "",
       date: fresh.line.target_date.replace(/-/g, "/"),
       supplier: fresh.line.supplier_name,
@@ -489,7 +494,7 @@ export default function LineDetailPage() {
     );
   }
 
-  const { line, rows, arrivals, stores } = data;
+  const { line, rows, arrivals, stores, originByRow } = data;
   const statusColor: Record<string, string> = {
     未入荷: "bg-gray-100 text-gray-600",
     一部入荷: "bg-amber-100 text-amber-700",
@@ -672,6 +677,9 @@ export default function LineDetailPage() {
               <span>
                 {r.store_code} {store?.store_name ?? ""}
                 {store?.sign ? <span className="text-gray-400">({store.sign})</span> : null}
+                {originByRow[r.id] ? (
+                  <span className="text-xs text-blue-700 ml-2">産地:{originByRow[r.id]}</span>
+                ) : null}
               </span>
               <span>
                 {r.pack_size}×{r.case_count}
