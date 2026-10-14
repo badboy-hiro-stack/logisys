@@ -12,6 +12,7 @@ type Store = { store_code: string; store_name: string; sign: string | null };
 type LineInfo = {
   order_line_id: number;
   item_code: string;
+  origin: string | null;
   total_display: string | null;
   arrival_status: string;
   m_items: { item_name: string } | { item_name: string }[] | null;
@@ -21,7 +22,7 @@ type LineInfo = {
     | null;
 };
 
-type DbRow = { id: number; store_code: string; pack_size: number; case_count: number };
+type DbRow = { id: number; store_code: string; pack_size: number; case_count: number; origin: string | null };
 
 // 画面で編集する行(id がなければ、新しく追加する行)
 type EditRow = {
@@ -32,6 +33,8 @@ type EditRow = {
   case_count: number;
   orig_pack: number;
   orig_cases: number;
+  origin: string;
+  orig_origin: string;
 };
 
 type LogRow = {
@@ -69,13 +72,13 @@ export default function ChangeEditPage() {
       supabase
         .from("t_order_lines")
         .select(
-          "order_line_id, item_code, total_display, arrival_status, m_items(item_name), t_orders(target_date, m_suppliers(supplier_name))"
+          "order_line_id, item_code, origin, total_display, arrival_status, m_items(item_name), t_orders(target_date, m_suppliers(supplier_name))"
         )
         .eq("order_line_id", lineId)
         .maybeSingle(),
       supabase
         .from("t_order_line_store_qty")
-        .select("id, store_code, pack_size, case_count")
+        .select("id, store_code, pack_size, case_count, origin")
         .eq("order_line_id", lineId),
       supabase
         .from("v_labels")
@@ -119,6 +122,8 @@ export default function ChangeEditPage() {
         case_count: r.case_count,
         orig_pack: r.pack_size,
         orig_cases: r.case_count,
+        origin: r.origin ?? "",
+        orig_origin: r.origin ?? "",
       }))
     );
 
@@ -169,6 +174,8 @@ export default function ChangeEditPage() {
         case_count: 0,
         orig_pack: 0,
         orig_cases: 0,
+        origin: "",
+        orig_origin: "",
       },
     ]);
   }
@@ -178,7 +185,7 @@ export default function ChangeEditPage() {
   }
 
   const isChanged = (r: EditRow) =>
-    r.id === null ? r.case_count > 0 : r.pack_size !== r.orig_pack || r.case_count !== r.orig_cases;
+    r.id === null ? r.case_count > 0 : r.pack_size !== r.orig_pack || r.case_count !== r.orig_cases || r.origin.trim() !== r.orig_origin;
   const changedRows = rows.filter(isChanged);
   const hasInvalid = rows.some(
     (r) => r.pack_size < 1 || r.case_count < 0 || !Number.isInteger(r.pack_size) || !Number.isInteger(r.case_count)
@@ -198,6 +205,7 @@ export default function ChangeEditPage() {
       store_code: r.store_code,
       pack_size: r.pack_size,
       case_count: r.case_count,
+      origin: r.origin.trim(),
     }));
     const { data, error: e } = await supabase.rpc("update_order_line_qty", {
       p_order_line_id: lineId,
@@ -252,6 +260,7 @@ export default function ChangeEditPage() {
         </div>
         <div className="text-base font-semibold">{itemName}</div>
         <div className="text-gray-600 mt-1">
+          {info.origin ? <>伝票の産地: <b>{info.origin}</b>　</> : null}
           全店計(現在): <b>{info.total_display ?? "-"}</b>　入荷状況: {info.arrival_status}
           {arrivedCases > 0 ? `(入荷済み ${arrivedCases}箱)` : ""}
         </div>
@@ -325,9 +334,19 @@ export default function ChangeEditPage() {
                   title="箱数"
                   className={NUM + " w-16"}
                 />
+                <input
+                  type="text"
+                  value={r.origin}
+                  onChange={(e) => update(r.key, { origin: e.target.value })}
+                  disabled={locked}
+                  title="指定産地(空欄なら伝票の産地欄を使います)"
+                  placeholder={info.origin ? `産地(伝票:${info.origin})` : "産地(指定なし)"}
+                  className="border border-gray-300 rounded px-1.5 py-1 text-sm w-40"
+                />
                 {changed && r.id !== null && (
                   <span className="text-xs text-blue-700">
-                    (変更前 {r.orig_pack}×{r.orig_cases})
+                    (変更前 {r.orig_pack}×{r.orig_cases}
+                    {r.origin.trim() !== r.orig_origin ? ` / 産地「${r.orig_origin || "なし"}」` : ""})
                   </span>
                 )}
                 {r.id === null && <span className="text-xs text-blue-700">追加</span>}
@@ -405,8 +424,8 @@ export default function ChangeEditPage() {
                   </div>
                   <div>
                     {row ? storeName(row.store_code) : ""}　
-                    {g.changed_field === "case_count" ? "箱数" : g.changed_field === "pack_size" ? "入数" : g.changed_field}
-                    : {g.old_value} → <b>{g.new_value}</b>
+                    {g.changed_field === "case_count" ? "箱数" : g.changed_field === "pack_size" ? "入数" : g.changed_field === "origin" ? "産地" : g.changed_field}
+                    : {g.old_value || (g.changed_field === "origin" ? "なし" : "")} → <b>{g.new_value || (g.changed_field === "origin" ? "なし" : "")}</b>
                   </div>
                 </li>
               );
