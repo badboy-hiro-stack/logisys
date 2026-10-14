@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/outbound", label: "出荷検品" },
   { href: "/labels/reissue", label: "ラベル再発行" },
   { href: "/reports", label: "当日変更・欠品 報告" },
+  { href: "/performance", label: "担当者別実績" },
   { href: "/master", label: "マスタ管理" },
 ];
 
