@@ -9,6 +9,7 @@ type Field = {
   type: "text" | "int";
   required?: boolean;
   width?: string;
+  auto?: boolean; // 自動採番(追加時は入力不要・編集不可)
 };
 
 type Row = Record<string, string | number | null>;
@@ -57,6 +58,17 @@ const CONFIGS: Record<string, Config> = {
   },
 };
 
+CONFIGS.locations = {
+  title: "拠点",
+  table: "m_locations",
+  codeKey: "location_id",
+  orderBy: "location_id",
+  fields: [
+    { key: "location_id", label: "拠点ID(自動)", type: "int", auto: true, width: "w-28" },
+    { key: "location_name", label: "拠点名", type: "text", required: true },
+  ],
+};
+
 function MasterTable({ cfg }: { cfg: Config }) {
   const supabase = createClient();
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -91,6 +103,7 @@ function MasterTable({ cfg }: { cfg: Config }) {
   function toPayload(values: Record<string, string>): { payload: Row; err: string | null } {
     const payload: Row = {};
     for (const f of cfg.fields) {
+      if (f.auto) continue;
       const v = (values[f.key] ?? "").trim();
       if (f.required && !v) return { payload, err: `${f.label}を入力してください` };
       if (f.type === "int") {
@@ -124,8 +137,8 @@ function MasterTable({ cfg }: { cfg: Config }) {
       setAdding(null);
       setMessage("追加しました");
     } else {
-      const { [cfg.codeKey]: _code, ...rest } = payload;
-      void _code;
+      const rest = { ...payload };
+      delete rest[cfg.codeKey];
       const { error: e } = await supabase.from(cfg.table).update(rest).eq(cfg.codeKey, editing!);
       if (e) {
         setError("更新に失敗しました: " + e.message);
@@ -138,12 +151,12 @@ function MasterTable({ cfg }: { cfg: Config }) {
   }
 
   async function remove(code: string) {
-    if (!window.confirm(`コード ${code} を削除します。よろしいですか?`)) return;
+    if (!window.confirm(`${cfg.title} ${code} を削除します。よろしいですか?`)) return;
     const { error: e } = await supabase.from(cfg.table).delete().eq(cfg.codeKey, code);
     if (e) {
       setError(
         e.code === "23503"
-          ? "すでに発注・ラベルなどの記録で使われているため削除できません(名前の修正は可能です)"
+          ? "すでにラベル・入荷などの記録やユーザーで使われているため削除できません(名前の修正は可能です)"
           : "削除に失敗しました: " + e.message,
       );
       return;
@@ -214,7 +227,9 @@ function MasterTable({ cfg }: { cfg: Config }) {
               {adding && (
                 <tr className="border-t border-gray-100 bg-blue-50">
                   {cfg.fields.map((f) => (
-                    <td key={f.key} className="py-2 pr-2">{input(f, adding, setAdding)}</td>
+                    <td key={f.key} className="py-2 pr-2">
+                      {f.auto ? <span className="text-gray-400">自動</span> : input(f, adding, setAdding)}
+                    </td>
                   ))}
                   <td className="py-2 text-right whitespace-nowrap">
                     <button type="button" onClick={() => save(true)} className="text-blue-600 mr-3">保存</button>
@@ -229,7 +244,7 @@ function MasterTable({ cfg }: { cfg: Config }) {
                   <tr key={code} className="border-t border-gray-100">
                     {cfg.fields.map((f) => (
                       <td key={f.key} className="py-2 pr-2">
-                        {isEdit ? input(f, draft, setDraft, f.key === cfg.codeKey) : (r[f.key] ?? "")}
+                        {isEdit ? input(f, draft, setDraft, f.key === cfg.codeKey || !!f.auto) : (r[f.key] ?? "")}
                       </td>
                     ))}
                     <td className="py-2 text-right whitespace-nowrap">
@@ -351,7 +366,9 @@ function UsersTable() {
                     <select
                       value={u.role}
                       onChange={(e) => update(u, { role: e.target.value as UserRow["role"] })}
-                      className="border border-gray-300 rounded-lg px-2 py-1 text-sm"
+                      disabled={u.user_id === me}
+                      title={u.user_id === me ? "自分の権限は変更できません" : ""}
+                      className="border border-gray-300 rounded-lg px-2 py-1 text-sm disabled:bg-gray-100"
                     >
                       <option value="検品担当者">検品担当者</option>
                       <option value="管理者">管理者</option>
@@ -384,6 +401,7 @@ const TABS = [
   { id: "suppliers", label: "仕入先" },
   { id: "stores", label: "店舗" },
   { id: "items", label: "品目" },
+  { id: "locations", label: "拠点" },
   { id: "users", label: "ユーザー" },
 ] as const;
 
