@@ -50,7 +50,7 @@ export default function PerformancePage() {
       <div className="flex flex-wrap items-end gap-3 mb-1">
         <h1 className="text-lg font-semibold">担当者別実績</h1>
         <label className="text-sm flex items-center gap-2">
-          日付
+          納品日
           <input
             type="date"
             value={date}
@@ -60,7 +60,7 @@ export default function PerformancePage() {
         </label>
       </div>
       <p className="text-sm text-gray-600 mb-4">
-        その日に各担当者が行った作業の件数です(日本時間の0時〜24時で集計)。
+        指定した納品日の伝票に対して、各担当者が行った作業の件数です(作業した日時ではなく、伝票の納品日で集計)。
       </p>
 
       {error && (
