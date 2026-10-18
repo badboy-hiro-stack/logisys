@@ -54,6 +54,7 @@ const CONFIGS: Record<string, Config> = {
       { key: "item_name", label: "品名", type: "text", required: true },
       { key: "default_spec", label: "標準規格", type: "text", width: "w-32" },
       { key: "default_pack_size", label: "標準入数", type: "int", width: "w-24" },
+      { key: "loose_case_size", label: "ケース入数(株数管理品のみ)", type: "int", width: "w-40" },
     ],
   },
 };

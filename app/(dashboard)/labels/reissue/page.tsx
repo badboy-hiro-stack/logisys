@@ -104,7 +104,7 @@ export default function ReissuePage() {
     await printLabel({
       item: l.item_name,
       store: formatStoreLabel(l.store_name, l.store_sign),
-      qty: `${l.pack_size}×${l.case_count}`,
+      qty: l.qty_text ?? `${l.pack_size}×${l.case_count}`,
       origin: l.origin ?? "",
       spec: l.spec ?? "",
       date: formatLabelDate(l.target_date),
@@ -243,7 +243,7 @@ export default function ReissuePage() {
             <div>
               {storeTitle(target.store_code, target.store_name, target.store_sign)}　/　
               <span className="font-semibold">
-                {target.pack_size}×{target.case_count}
+                {target.qty_text ?? `${target.pack_size}×${target.case_count}`}
               </span>
             </div>
             <div className="text-gray-600">

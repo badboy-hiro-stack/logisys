@@ -183,7 +183,7 @@ export default function OutboundStorePage() {
         confirmed_by_name?: string;
       };
       if (res.result === "ok") {
-        setFlash(`確定しました:${label.item_name} ${label.pack_size}×${label.case_count}`);
+        setFlash(`確定しました:${label.item_name} ${label.qty_text ?? `${label.pack_size}×${label.case_count}`}`);
         setCurrent(null);
       } else if (res.result === "already_confirmed") {
         // 他の担当者が先に確定していた
@@ -287,7 +287,7 @@ export default function OutboundStorePage() {
         <p>
           <span className="text-gray-500">数量:</span>
           <span className="font-semibold text-base">
-            {l.pack_size}×{l.case_count}
+            {l.qty_text ?? `${l.pack_size}×${l.case_count}`}
           </span>
           <span className="text-gray-400 ml-2">({l.qty}個)</span>
         </p>
@@ -516,7 +516,7 @@ export default function OutboundStorePage() {
                     </span>
                   </span>
                   <span className="font-medium">
-                    {r.pack_size}×{r.case_count}
+                    {r.qty_text ?? `${r.pack_size}×${r.case_count}`}
                   </span>
                 </li>
               );

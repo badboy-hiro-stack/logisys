@@ -7,6 +7,9 @@ export type LabelView = {
   pack_size: number;
   case_count: number;
   qty: number;
+  qty_text: string | null; // ラベルに出す数量の文字(ケース/ばら対応)
+  label_kind: string;
+  unit_size: number | null;
   issued_at: string;
   store_qty_id: number;
   store_code: string;

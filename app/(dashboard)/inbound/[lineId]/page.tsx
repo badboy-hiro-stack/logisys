@@ -32,6 +32,7 @@ type LineInfo = {
   origin: string | null;
   total_display: string | null;
   arrival_status: string;
+  unit_default: number | null; // 株数管理品のケース入数の標準値(通常の品目は null)
   supplier_code: string;
   supplier_name: string;
   target_date: string;
@@ -42,6 +43,7 @@ type ArrivalFull = {
   pack_size: number;
   case_count: number;
   arrived_at: string;
+  unit_size: number | null;
 };
 type Fresh = {
   line: LineInfo;
@@ -50,7 +52,35 @@ type Fresh = {
   labels: LabelRow[];
   stores: Record<string, StoreInfo>;
   originByRow: Record<number, string>; // 店舗ごとの指定産地(空なら明細行の産地を使う)
+  issuedLabels: IssuedLabel[]; // 発行済み(無効でない)ラベル
 };
+type IssuedLabel = {
+  label_id: string;
+  order_line_store_qty_id: number;
+  pack_size: number;
+  case_count: number;
+  label_kind: string;
+  unit_size: number | null;
+};
+// 発行するラベル1枚分(units = ラベルの case_count。株数管理品では株数)
+type LabelSpec = { row: StoreQtyRow; units: number; kind: "通常" | "ケース" | "ばら"; unitSize: number | null };
+
+// 株数を、ケース分とばら分のラベルに分ける
+function splitUnits(row: StoreQtyRow, units: number, size: number): LabelSpec[] {
+  const specs: LabelSpec[] = [];
+  const cases = Math.floor(units / size);
+  const loose = units % size;
+  if (cases > 0) specs.push({ row, units: cases * size, kind: "ケース", unitSize: size });
+  if (loose > 0) specs.push({ row, units: loose, kind: "ばら", unitSize: size });
+  return specs;
+}
+
+// ラベル・画面に出す数量の文字
+function qtyText(kind: string, pack: number, units: number, unitSize: number | null): string {
+  if (kind === "ケース" && unitSize && unitSize > 0) return `${unitSize}株×${units / unitSize}ケース`;
+  if (kind === "ばら") return `${units}株(ばら)`;
+  return `${pack}×${units}`;
+}
 type PendingPrint = { label_id: string; data: LabelPrintData };
 type Message = { type: "ok" | "error"; text: string };
 
@@ -66,7 +96,10 @@ type RawLine = {
   origin: string | null;
   total_display: string | null;
   arrival_status: string;
-  m_items: { item_name: string } | { item_name: string }[] | null;
+  m_items:
+    | { item_name: string; loose_case_size: number | null }
+    | { item_name: string; loose_case_size: number | null }[]
+    | null;
   t_orders: RawOrder | RawOrder[] | null;
 };
 
@@ -85,6 +118,7 @@ export default function LineDetailPage() {
   const [arrivalInput, setArrivalInput] = useState<Record<number, string>>({});
   const [issueInput, setIssueInput] = useState<Record<number, string>>({});
   const [printer, setPrinter] = useState("");
+  const [caseSizeInput, setCaseSizeInput] = useState<string>(""); // 株数管理品:今回のケース入数
 
   // ---- データの取得 ----------------------------------------------------
   const fetchAll = useCallback(async (): Promise<Fresh> => {
@@ -92,7 +126,7 @@ export default function LineDetailPage() {
       .from("t_order_lines")
       .select(
         "order_line_id, item_code, spec, origin, total_display, arrival_status, " +
-          "m_items(item_name), t_orders(supplier_code, target_date, m_suppliers(supplier_name))"
+          "m_items(item_name, loose_case_size), t_orders(supplier_code, target_date, m_suppliers(supplier_name))"
       )
       .eq("order_line_id", lineId)
       .single();
@@ -111,6 +145,7 @@ export default function LineDetailPage() {
       origin: raw.origin,
       total_display: raw.total_display,
       arrival_status: raw.arrival_status,
+      unit_default: one(raw.m_items)?.loose_case_size ?? null,
       supplier_code: order.supplier_code,
       supplier_name: one(order.m_suppliers)?.supplier_name ?? order.supplier_code,
       target_date: order.target_date,
@@ -123,7 +158,7 @@ export default function LineDetailPage() {
         .eq("order_line_id", lineId),
       supabase
         .from("t_arrivals")
-        .select("arrival_id, pack_size, case_count, arrived_at")
+        .select("arrival_id, pack_size, case_count, arrived_at, unit_size")
         .eq("order_line_id", lineId)
         .order("arrival_id"),
       supabase.from("m_stores").select("store_code, store_name, sign"),
@@ -146,10 +181,12 @@ export default function LineDetailPage() {
     );
 
     let labels: LabelRow[] = [];
+    let issuedLabels: IssuedLabel[] = [];
     if (rows.length > 0) {
       const lb = await supabase
         .from("t_labels")
-        .select("order_line_store_qty_id, pack_size, case_count")
+        .select("label_id, order_line_store_qty_id, pack_size, case_count, label_kind, unit_size")
+        .order("label_id")
         .in(
           "order_line_store_qty_id",
           rows.map((r) => r.id)
@@ -157,9 +194,10 @@ export default function LineDetailPage() {
         .neq("status", "無効");
       if (lb.error) throw new Error("ラベルの取得に失敗しました: " + lb.error.message);
       labels = (lb.data ?? []) as unknown as LabelRow[];
+      issuedLabels = (lb.data ?? []) as unknown as IssuedLabel[];
     }
 
-    return { line, rows, arrivals, labels, stores, originByRow };
+    return { line, rows, arrivals, labels, stores, originByRow, issuedLabels };
   }, [supabase, lineId]);
 
   // 入荷状態を計算し、変わっていればDBに保存したうえで、画面に反映する
@@ -210,6 +248,15 @@ export default function LineDetailPage() {
     return { ordered, arrived, issued, packs, available, remainingOf };
   }, [data]);
 
+  // 株数管理品(セロリなど)かどうかと、使うケース入数(画面の入力 → 直近の入荷 → 品目マスタの標準値)
+  const isUnit = data?.line.unit_default != null;
+  const caseSize = (() => {
+    const typed = Number(caseSizeInput);
+    if (caseSizeInput !== "" && Number.isInteger(typed) && typed > 0) return typed;
+    const lastArrival = data ? [...data.arrivals].reverse().find((a) => a.unit_size) : undefined;
+    return lastArrival?.unit_size ?? data?.line.unit_default ?? 0;
+  })();
+
   const closed = data?.line.arrival_status === "欠品確定";
 
   // ---- 共通の補助 ------------------------------------------------------
@@ -221,12 +268,19 @@ export default function LineDetailPage() {
     return { userId: user?.id ?? null, locationId: loc ? Number(loc) : null };
   }
 
-  function buildPrintData(fresh: Fresh, row: StoreQtyRow, cases: number, labelId: string): LabelPrintData {
+  function buildPrintData(
+    fresh: Fresh,
+    row: StoreQtyRow,
+    cases: number,
+    labelId: string,
+    kind: string = "通常",
+    unitSize: number | null = null
+  ): LabelPrintData {
     const store = fresh.stores[row.store_code];
     return {
       item: fresh.line.item_name,
       store: formatStoreLabel(store?.store_name ?? row.store_code, store?.sign),
-      qty: `${row.pack_size}×${cases}`,
+      qty: qtyText(kind, row.pack_size, cases, unitSize),
       origin: fresh.originByRow[row.id] ?? fresh.line.origin ?? "",
       spec: fresh.line.spec ?? "",
       date: fresh.line.target_date.replace(/-/g, "/"),
@@ -238,16 +292,31 @@ export default function LineDetailPage() {
   // ---- 入荷の記録 ------------------------------------------------------
   async function recordArrival() {
     if (!calc) return;
-    const entries = calc.packs
-      .map((p) => ({ pack: p, cases: Number(arrivalInput[p] || 0) }))
-      .filter((e) => e.cases !== 0);
-    if (entries.length === 0) {
-      setMessage({ type: "error", text: "今回の入荷数(箱)を入力してください" });
-      return;
-    }
-    if (entries.some((e) => !Number.isInteger(e.cases) || e.cases < 1)) {
-      setMessage({ type: "error", text: "入荷数は1以上の整数で入力してください" });
-      return;
+    let entries: { pack: number; cases: number; unit: number | null }[];
+    if (isUnit) {
+      // 株数管理品:ケース数 × ケース入数 を「株数」として記録する
+      const cases = Number(arrivalInput[1] || 0);
+      if (!Number.isInteger(cases) || cases < 1) {
+        setMessage({ type: "error", text: "今回の入荷ケース数を1以上の整数で入力してください" });
+        return;
+      }
+      if (!caseSize) {
+        setMessage({ type: "error", text: "ケース入数を入力してください" });
+        return;
+      }
+      entries = [{ pack: 1, cases: cases * caseSize, unit: caseSize }];
+    } else {
+      entries = calc.packs
+        .map((p) => ({ pack: p, cases: Number(arrivalInput[p] || 0), unit: null as number | null }))
+        .filter((e) => e.cases !== 0);
+      if (entries.length === 0) {
+        setMessage({ type: "error", text: "今回の入荷数(箱)を入力してください" });
+        return;
+      }
+      if (entries.some((e) => !Number.isInteger(e.cases) || e.cases < 1)) {
+        setMessage({ type: "error", text: "入荷数は1以上の整数で入力してください" });
+        return;
+      }
     }
     setBusy(true);
     setMessage(null);
@@ -258,6 +327,7 @@ export default function LineDetailPage() {
           order_line_id: lineId,
           pack_size: e.pack,
           case_count: e.cases,
+          unit_size: e.unit,
           user_id: userId,
           location_id: locationId,
         }))
@@ -281,11 +351,15 @@ export default function LineDetailPage() {
     if (arrivedP - a.case_count < issuedP) {
       setMessage({
         type: "error",
-        text: "この入荷記録を取り消すと、発行済みのラベルの箱数が入荷数を上回ってしまうため、取り消せません",
+        text: "この入荷記録を取り消すと、発行済みのラベルの数量が入荷数を上回ってしまうため、取り消せません",
       });
       return;
     }
-    if (!window.confirm(`入荷記録(入数${a.pack_size}・${a.case_count}箱)を取り消します。よろしいですか?`)) return;
+    const desc =
+      a.unit_size && a.unit_size > 0
+        ? `${a.unit_size}株×${a.case_count / a.unit_size}ケース`
+        : `入数${a.pack_size}・${a.case_count}箱`;
+    if (!window.confirm(`入荷記録(${desc})を取り消します。よろしいですか?`)) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -325,6 +399,37 @@ export default function LineDetailPage() {
     return true;
   }
 
+  // 発行済みのラベルを、番号を変えずにそのまま印刷し直す(印刷エラー・別端末で発行した場合など)
+  async function reprintIssued(labels: IssuedLabel[]) {
+    if (!data || labels.length === 0) return;
+    if (labels.length > 1 && !window.confirm(`${labels.length}枚のラベルを再印刷します。よろしいですか?`)) return;
+    setBusy(true);
+    setMessage(null);
+    setFailedPrints([]);
+    try {
+      const items: PendingPrint[] = [];
+      for (const l of labels) {
+        const row = data.rows.find((r) => r.id === l.order_line_store_qty_id);
+        if (!row) continue;
+        items.push({
+          label_id: l.label_id,
+          data: buildPrintData(
+            data,
+            { ...row, pack_size: l.pack_size },
+            l.case_count,
+            l.label_id,
+            l.label_kind,
+            l.unit_size
+          ),
+        });
+      }
+      const ok = await printAll(items);
+      if (ok) setMessage({ type: "ok", text: `${items.length}枚を再印刷しました。出てきたラベルを確認してください` });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function reprintFailed() {
     setBusy(true);
     setMessage(null);
@@ -337,18 +442,21 @@ export default function LineDetailPage() {
   }
 
   // ラベルの発行。①最新の状態で検証 → ②番号を確保 → ③DBに登録 → ④印刷
-  async function issue(targets: { row: StoreQtyRow; cases: number }[]) {
-    if (targets.length === 0) return;
+  async function issue(specs: LabelSpec[]) {
+    if (specs.length === 0) return;
     setBusy(true);
     setMessage(null);
     setFailedPrints([]);
     try {
       const fresh = await refresh();
+      // 同じ店舗のラベル(ケース+ばら)は合計して検証する
+      const perRow = new Map<number, number>();
+      specs.forEach((s) => perRow.set(s.row.id, (perRow.get(s.row.id) ?? 0) + s.units));
       const problem = validateIssue(
         fresh.rows,
         fresh.arrivals,
         fresh.labels,
-        targets.map((t) => ({ rowId: t.row.id, cases: t.cases }))
+        Array.from(perRow.entries()).map(([rowId, cases]) => ({ rowId, cases }))
       );
       if (problem) {
         setMessage({ type: "error", text: problem });
@@ -356,7 +464,7 @@ export default function LineDetailPage() {
       }
 
       const { userId, locationId } = await getActor();
-      const count = targets.length;
+      const count = specs.length;
       const { data: last, error: rpcErr } = await supabase.rpc("reserve_label_numbers", {
         p_supplier: fresh.line.supplier_code,
         p_date: fresh.line.target_date,
@@ -365,12 +473,14 @@ export default function LineDetailPage() {
       if (rpcErr) throw rpcErr;
       const first = (last as number) - count + 1;
 
-      const newLabels = targets.map((t, i) => ({
+      const newLabels = specs.map((s, i) => ({
         label_id: formatLabelId(fresh.line.supplier_code, fresh.line.target_date, first + i),
-        order_line_store_qty_id: t.row.id,
-        pack_size: t.row.pack_size,
-        case_count: t.cases,
-        qty: t.row.pack_size * t.cases,
+        order_line_store_qty_id: s.row.id,
+        pack_size: s.row.pack_size,
+        case_count: s.units,
+        qty: s.row.pack_size * s.units,
+        label_kind: s.kind,
+        unit_size: s.unitSize,
         issued_by: userId,
         location_id: locationId,
       }));
@@ -382,7 +492,7 @@ export default function LineDetailPage() {
 
       const pending: PendingPrint[] = newLabels.map((l, i) => ({
         label_id: l.label_id,
-        data: buildPrintData(updated, targets[i].row, targets[i].cases, l.label_id),
+        data: buildPrintData(updated, specs[i].row, specs[i].units, l.label_id, specs[i].kind, specs[i].unitSize),
       }));
       const ok = await printAll(pending);
       if (ok) {
@@ -398,35 +508,54 @@ export default function LineDetailPage() {
     }
   }
 
+  // 1店舗分のラベル仕様(株数管理品はケースとばらに分ける)
+  function specsFor(row: StoreQtyRow, units: number): LabelSpec[] {
+    if (isUnit) return splitUnits(row, units, caseSize);
+    return [{ row, units, kind: "通常", unitSize: null }];
+  }
+
   function issueOne(row: StoreQtyRow) {
     if (!calc) return;
+    if (isUnit && !caseSize) {
+      setMessage({ type: "error", text: "ケース入数を入力してください" });
+      return;
+    }
     const remaining = calc.remainingOf(row);
     const maxIssuable = Math.max(0, Math.min(remaining, calc.available(row.pack_size)));
     const raw = issueInput[row.id];
     const cases = raw === undefined || raw === "" ? maxIssuable : Number(raw);
+    const unitWord = isUnit ? "株" : "箱";
     if (!Number.isInteger(cases) || cases < 1) {
       setMessage({
         type: "error",
-        text: maxIssuable === 0 ? "発行できる箱数がありません(入荷数を記録してください)" : "箱数は1以上の整数で入力してください",
+        text:
+          maxIssuable === 0
+            ? "発行できる数がありません(入荷数を記録してください)"
+            : `${unitWord}数は1以上の整数で入力してください`,
       });
       return;
     }
     if (cases > maxIssuable) {
-      setMessage({ type: "error", text: `この店舗で今発行できるのは${maxIssuable}箱までです` });
+      setMessage({ type: "error", text: `この店舗で今発行できるのは${maxIssuable}${unitWord}までです` });
       return;
     }
-    issue([{ row, cases }]);
+    issue(specsFor(row, cases));
   }
 
   function issueBulk(pack: number) {
     if (!data || !calc) return;
-    const targets = data.rows
+    if (isUnit && !caseSize) {
+      setMessage({ type: "error", text: "ケース入数を入力してください" });
+      return;
+    }
+    const specs = data.rows
       .filter((r) => r.pack_size === pack)
-      .map((r) => ({ row: r, cases: calc.remainingOf(r) }))
-      .filter((t) => t.cases > 0);
-    if (targets.length === 0) return;
-    if (!window.confirm(`${targets.length}枚のラベルを発行・印刷します。よろしいですか?`)) return;
-    issue(targets);
+      .map((r) => ({ row: r, n: calc.remainingOf(r) }))
+      .filter((t) => t.n > 0)
+      .flatMap((t) => specsFor(t.row, t.n));
+    if (specs.length === 0) return;
+    if (!window.confirm(`${specs.length}枚のラベルを発行・印刷します。よろしいですか?`)) return;
+    issue(specs);
   }
 
   // ---- 入荷完了(欠品確定)と再開 ---------------------------------------
@@ -435,7 +564,7 @@ export default function LineDetailPage() {
     const remainingTotal = data.rows.reduce((a, r) => a + calc.remainingOf(r), 0);
     if (
       !window.confirm(
-        `未発行の${remainingTotal}箱分を欠品として記録し、この品目の入荷を完了します。よろしいですか?`
+        `未発行の${remainingTotal}${isUnit ? "株" : "箱"}分を欠品として記録し、この品目の入荷を完了します。よろしいですか?`
       )
     )
       return;
@@ -494,7 +623,7 @@ export default function LineDetailPage() {
     );
   }
 
-  const { line, rows, arrivals, stores, originByRow } = data;
+  const { line, rows, arrivals, stores, originByRow, issuedLabels } = data;
   const statusColor: Record<string, string> = {
     未入荷: "bg-gray-100 text-gray-600",
     一部入荷: "bg-amber-100 text-amber-700",
@@ -519,7 +648,10 @@ export default function LineDetailPage() {
       </div>
       <p className="text-sm text-gray-500 mb-4">
         {line.supplier_name} / 納品日 {line.target_date.replace(/-/g, "/")} / EOS {line.item_code}
-        {line.origin ? ` / 産地:${line.origin}` : ""} / 全店計 {line.total_display ?? ""}
+        {line.origin ? ` / 産地:${line.origin}` : ""} /{" "}
+        {isUnit
+          ? `全店計 ${rows.reduce((a, r) => a + r.case_count, 0)}株(株数管理品)`
+          : `全店計 ${line.total_display ?? ""}`}
       </p>
 
       {message && (
@@ -548,34 +680,94 @@ export default function LineDetailPage() {
 
       {/* 入荷数の入力 */}
       <section className="bg-white border border-gray-200 rounded-xl p-5 mb-5">
-        <h2 className="text-sm font-semibold mb-3">① 入荷数を記録(箱数)</h2>
-        <div className="grid grid-cols-[5rem_1fr_1fr_1fr_7rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
-          <span>入数</span>
-          <span>発注</span>
-          <span>累計入荷</span>
-          <span>発行可能(残)</span>
-          <span>今回の入荷数</span>
-        </div>
-        {calc.packs.map((p) => (
-          <div
-            key={p}
-            className="grid grid-cols-[5rem_1fr_1fr_1fr_7rem] gap-x-3 items-center py-2 text-sm border-b border-gray-100"
-          >
-            <span className="font-medium">{p}入り</span>
-            <span>{calc.ordered.get(p) ?? 0}箱</span>
-            <span>{calc.arrived.get(p) ?? 0}箱</span>
-            <span className="text-brand font-medium">{Math.max(0, calc.available(p))}箱</span>
-            <input
-              type="number"
-              min={1}
-              value={arrivalInput[p] ?? ""}
-              onChange={(e) => setArrivalInput({ ...arrivalInput, [p]: e.target.value })}
-              disabled={busy || closed}
-              placeholder="箱"
-              className="border border-gray-300 rounded px-2 py-1 text-sm text-right w-full"
-            />
-          </div>
-        ))}
+        {isUnit ? (
+          <>
+            <h2 className="text-sm font-semibold mb-1">① 入荷数を記録(ケース数)</h2>
+            <p className="text-xs text-gray-500 mb-3">
+              株数で管理する品目です。伝票の「入数×」は無視して、数字を株数として扱います。
+              入荷したケースの入数(2L・L・Mなどで変わります)とケース数を入力してください。
+            </p>
+            <div className="flex flex-wrap items-end gap-4 mb-3 text-sm">
+              <label className="flex flex-col text-xs text-gray-500">
+                ケース入数(株/ケース)
+                <input
+                  type="number"
+                  min={1}
+                  value={caseSizeInput !== "" ? caseSizeInput : caseSize ? String(caseSize) : ""}
+                  onChange={(e) => setCaseSizeInput(e.target.value)}
+                  disabled={busy || closed}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm text-right w-28 mt-1"
+                />
+              </label>
+              <label className="flex flex-col text-xs text-gray-500">
+                今回の入荷ケース数
+                <input
+                  type="number"
+                  min={1}
+                  value={arrivalInput[1] ?? ""}
+                  onChange={(e) => setArrivalInput({ ...arrivalInput, 1: e.target.value })}
+                  disabled={busy || closed}
+                  placeholder="ケース"
+                  className="border border-gray-300 rounded px-2 py-1 text-sm text-right w-28 mt-1"
+                />
+              </label>
+              <span className="text-xs text-gray-500 pb-1">
+                {Number(arrivalInput[1] || 0) > 0 && caseSize
+                  ? `= ${Number(arrivalInput[1]) * caseSize}株`
+                  : ""}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
+              <span>発注</span>
+              <span>累計入荷</span>
+              <span>発行可能(残)</span>
+            </div>
+            <div className="grid grid-cols-3 gap-x-3 py-2 text-sm border-b border-gray-100">
+              <span>
+                {calc.ordered.get(1) ?? 0}株
+                {caseSize ? (
+                  <span className="text-xs text-gray-500">
+                    {" "}
+                    (約{Math.ceil((calc.ordered.get(1) ?? 0) / caseSize)}ケース)
+                  </span>
+                ) : null}
+              </span>
+              <span>{calc.arrived.get(1) ?? 0}株</span>
+              <span className="text-brand font-medium">{Math.max(0, calc.available(1))}株</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-sm font-semibold mb-3">① 入荷数を記録(箱数)</h2>
+            <div className="grid grid-cols-[5rem_1fr_1fr_1fr_7rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
+              <span>入数</span>
+              <span>発注</span>
+              <span>累計入荷</span>
+              <span>発行可能(残)</span>
+              <span>今回の入荷数</span>
+            </div>
+            {calc.packs.map((p) => (
+              <div
+                key={p}
+                className="grid grid-cols-[5rem_1fr_1fr_1fr_7rem] gap-x-3 items-center py-2 text-sm border-b border-gray-100"
+              >
+                <span className="font-medium">{p}入り</span>
+                <span>{calc.ordered.get(p) ?? 0}箱</span>
+                <span>{calc.arrived.get(p) ?? 0}箱</span>
+                <span className="text-brand font-medium">{Math.max(0, calc.available(p))}箱</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={arrivalInput[p] ?? ""}
+                  onChange={(e) => setArrivalInput({ ...arrivalInput, [p]: e.target.value })}
+                  disabled={busy || closed}
+                  placeholder="箱"
+                  className="border border-gray-300 rounded px-2 py-1 text-sm text-right w-full"
+                />
+              </div>
+            ))}
+          </>
+        )}
         <div className="mt-3 flex items-center gap-3">
           <button
             onClick={recordArrival}
@@ -584,7 +776,7 @@ export default function LineDetailPage() {
           >
             入荷を記録
           </button>
-          {calc.packs.length > 1 && (
+          {!isUnit && calc.packs.length > 1 && (
             <span className="text-xs text-gray-500">入数混載の品目です。入数ごとに入荷数を入力してください</span>
           )}
         </div>
@@ -599,7 +791,9 @@ export default function LineDetailPage() {
                     {new Date(a.arrived_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   <span>
-                    入数{a.pack_size} / {a.case_count}箱
+                    {a.unit_size
+                      ? `${a.unit_size}株×${a.case_count / a.unit_size}ケース(${a.case_count}株)`
+                      : `入数${a.pack_size} / ${a.case_count}箱`}
                   </span>
                   <button
                     onClick={() => cancelArrival(a)}
@@ -637,7 +831,7 @@ export default function LineDetailPage() {
             const ready = (calc.arrived.get(p) ?? 0) >= (calc.ordered.get(p) ?? 0);
             const targets = rows.filter((r) => r.pack_size === p && calc.remainingOf(r) > 0).length;
             const label =
-              calc.packs.length > 1 ? `${p}入りの店舗を発注どおり一括発行` : "全店舗を発注どおり一括発行";
+              calc.packs.length > 1 && !isUnit ? `${p}入りの店舗を発注どおり一括発行` : "全店舗を発注どおり一括発行";
             return (
               <button
                 key={p}
@@ -652,12 +846,35 @@ export default function LineDetailPage() {
           })}
         </div>
 
+        {isUnit && (
+          <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-3">
+            {caseSize ? (
+              (() => {
+                const looseTotal = rows.reduce((a, r) => a + (r.case_count % caseSize), 0);
+                return (
+                  <>
+                    ケース入数{caseSize}株。店舗ごとに「ケースのラベル」と「ばら(端数)のラベル」を発行します。
+                    ばらの合計は<b>{looseTotal}株</b>
+                    {looseTotal > 0 && looseTotal % caseSize === 0
+                      ? `(=${looseTotal / caseSize}ケースをばらして分けます)`
+                      : looseTotal > 0
+                        ? `(ケース入数で割り切れません。発注数かケース入数を確認してください)`
+                        : ""}
+                    。
+                  </>
+                );
+              })()
+            ) : (
+              "ケース入数を入力してください(① の欄)"
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-[1fr_5rem_4rem_4rem_5rem_4.5rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
           <span>店舗</span>
           <span>発注</span>
           <span>発行済</span>
           <span>残</span>
-          <span>箱数</span>
+          <span>{isUnit ? "株数" : "箱数"}</span>
           <span />
         </div>
         {rows.map((r) => {
@@ -682,7 +899,21 @@ export default function LineDetailPage() {
                 ) : null}
               </span>
               <span>
-                {r.pack_size}×{r.case_count}
+                {isUnit ? (
+                  <>
+                    {r.case_count}株
+                    {caseSize ? (
+                      <span className="block text-[10px] text-gray-400">
+                        {Math.floor(r.case_count / caseSize)}ケース
+                        {r.case_count % caseSize ? `+${r.case_count % caseSize}株` : ""}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    {r.pack_size}×{r.case_count}
+                  </>
+                )}
               </span>
               <span className={done ? "text-green-600" : ""}>{issuedN}</span>
               <span className={done ? "text-green-600 font-medium" : "font-medium"}>{remaining}</span>
@@ -712,10 +943,58 @@ export default function LineDetailPage() {
           );
         })}
         <p className="text-xs text-gray-500 mt-3">
-          箱数を空欄のまま「発行」を押すと、その店舗で今発行できる最大の箱数(薄い文字の数)で発行します。
-          1つの店舗を複数のラベルに分けるときは、箱数を入れて何度か発行してください。
+          {isUnit
+            ? "株数を空欄のまま「発行」を押すと、その店舗で今発行できる最大の株数(薄い文字の数)で、ケースとばらのラベルを発行します。"
+            : "箱数を空欄のまま「発行」を押すと、その店舗で今発行できる最大の箱数(薄い文字の数)で発行します。1つの店舗を複数のラベルに分けるときは、箱数を入れて何度か発行してください。"}
         </p>
       </section>
+
+      {/* 発行済みラベルの再印刷(同じ番号) */}
+      {issuedLabels.length > 0 && (
+        <section className="bg-white border border-gray-200 rounded-xl p-5 mb-5">
+          <details>
+            <summary className="cursor-pointer text-sm font-semibold">
+              ③ 発行済みラベルの再印刷(同じ番号で印刷し直す・{issuedLabels.length}枚)
+            </summary>
+            <p className="text-xs text-gray-500 mt-2 mb-3">
+              印刷エラーや、別の端末で発行して印刷できなかったときに使います。ラベルの番号は変わりません。
+              印刷には、b-PAC拡張機能とプリンターがつながったパソコン(FZ-M1など)が必要です。
+              汚れや破損でラベルを作り直すときは、「ラベル再発行」を使ってください。
+            </p>
+            <button
+              onClick={() => reprintIssued(issuedLabels)}
+              disabled={busy}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm mb-3 disabled:opacity-50"
+            >
+              すべて再印刷({issuedLabels.length}枚)
+            </button>
+            <ul className="divide-y divide-gray-100 text-sm">
+              {issuedLabels.map((l) => {
+                const store = stores[rows.find((r) => r.id === l.order_line_store_qty_id)?.store_code ?? ""];
+                return (
+                  <li key={l.label_id} className="py-2 flex items-center gap-3 flex-wrap">
+                    <span className="font-mono text-xs w-48">{l.label_id}</span>
+                    <span className="flex-1">
+                      {store?.store_name ?? ""}
+                      {store?.sign ? <span className="text-gray-400">({store.sign})</span> : null}
+                      <span className="ml-2 text-gray-600">
+                        {qtyText(l.label_kind, l.pack_size, l.case_count, l.unit_size)}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => reprintIssued([l])}
+                      disabled={busy}
+                      className="border border-gray-300 rounded px-3 py-1 text-xs disabled:opacity-50"
+                    >
+                      再印刷
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
+        </section>
+      )}
 
       {/* 入荷の完了(欠品確定) */}
       <section className="mb-10">
