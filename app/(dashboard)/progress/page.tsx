@@ -192,8 +192,8 @@ export default function ProgressPage() {
             />
             <StatCard
               title="ラベル発行"
-              main={`${labelTotal.toLocaleString()} 枚`}
-              sub={`品目×店舗 ${data.issued_rows.toLocaleString()} / ${data.ordered_rows.toLocaleString()} 件(${pct(data.issued_rows, data.ordered_rows)}%)が発注どおり発行済み`}
+              main={`${pct(data.issued_rows, data.ordered_rows)}%`}
+              sub={`品目×店舗 ${data.issued_rows.toLocaleString()} / ${data.ordered_rows.toLocaleString()} 件が発注どおり発行済み`}
               value={pct(data.issued_rows, data.ordered_rows)}
             />
             <StatCard
