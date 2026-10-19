@@ -10,6 +10,7 @@ export type LabelView = {
   qty_text: string | null; // ラベルに出す数量の文字(ケース/ばら対応)
   label_kind: string;
   unit_size: number | null;
+  bundle_items: { item_name: string; qty: number }[] | null; // まとめラベルの中身の内訳
   issued_at: string;
   store_qty_id: number;
   store_code: string;

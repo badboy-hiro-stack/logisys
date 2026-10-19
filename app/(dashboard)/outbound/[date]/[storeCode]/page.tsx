@@ -289,8 +289,16 @@ export default function OutboundStorePage() {
           <span className="font-semibold text-base">
             {l.qty_text ?? `${l.pack_size}×${l.case_count}`}
           </span>
-          <span className="text-gray-400 ml-2">({l.qty}個)</span>
+          {l.label_kind !== "まとめ" && <span className="text-gray-400 ml-2">({l.qty}個)</span>}
         </p>
+        {l.bundle_items && l.bundle_items.length > 0 && (
+          <p>
+            <span className="text-gray-500">内訳:</span>
+            <span className="font-medium">
+              {l.bundle_items.map((b) => `${b.item_name}${b.qty}`).join(" / ")}
+            </span>
+          </p>
+        )}
         <p>
           <span className="text-gray-500">店舗:</span>
           {storeTitle(l.store_code, l.store_name, l.store_sign)}

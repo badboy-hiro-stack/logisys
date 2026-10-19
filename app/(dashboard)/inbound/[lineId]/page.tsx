@@ -33,6 +33,7 @@ type LineInfo = {
   total_display: string | null;
   arrival_status: string;
   unit_default: number | null; // 株数管理品のケース入数の標準値(通常の品目は null)
+  bundle_group: string | null; // まとめグループ(ハーブ類など)。設定されている品目はまとめ入荷で処理する
   supplier_code: string;
   supplier_name: string;
   target_date: string;
@@ -97,8 +98,8 @@ type RawLine = {
   total_display: string | null;
   arrival_status: string;
   m_items:
-    | { item_name: string; loose_case_size: number | null }
-    | { item_name: string; loose_case_size: number | null }[]
+    | { item_name: string; loose_case_size: number | null; bundle_group: string | null }
+    | { item_name: string; loose_case_size: number | null; bundle_group: string | null }[]
     | null;
   t_orders: RawOrder | RawOrder[] | null;
 };
@@ -126,7 +127,7 @@ export default function LineDetailPage() {
       .from("t_order_lines")
       .select(
         "order_line_id, item_code, spec, origin, total_display, arrival_status, " +
-          "m_items(item_name, loose_case_size), t_orders(supplier_code, target_date, m_suppliers(supplier_name))"
+          "m_items(item_name, loose_case_size, bundle_group), t_orders(supplier_code, target_date, m_suppliers(supplier_name))"
       )
       .eq("order_line_id", lineId)
       .single();
@@ -146,6 +147,7 @@ export default function LineDetailPage() {
       total_display: raw.total_display,
       arrival_status: raw.arrival_status,
       unit_default: one(raw.m_items)?.loose_case_size ?? null,
+      bundle_group: one(raw.m_items)?.bundle_group ?? null,
       supplier_code: order.supplier_code,
       supplier_name: one(order.m_suppliers)?.supplier_name ?? order.supplier_code,
       target_date: order.target_date,
@@ -624,6 +626,27 @@ export default function LineDetailPage() {
   }
 
   const { line, rows, arrivals, stores, originByRow, issuedLabels } = data;
+
+  // まとめグループの品目(ハーブ類など)は、まとめ入荷の画面で処理する
+  if (line.bundle_group) {
+    return (
+      <div className="max-w-3xl">
+        <Link href="/inbound" className="text-sm text-brand underline">
+          ← 品目一覧へ
+        </Link>
+        <h1 className="text-lg font-semibold mt-2 mb-3">{line.item_name}</h1>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-800">
+          <p className="mb-3">
+            この品目は「{line.bundle_group}」として、店舗ごとに1箱・ラベル1枚にまとめて処理します。
+            まとめ入荷の画面で入荷とラベル発行を行ってください(欠品もそこで設定できます)。
+          </p>
+          <Link href="/inbound/bundle" className="inline-block bg-brand text-white rounded-lg px-4 py-2">
+            まとめ入荷の画面へ
+          </Link>
+        </div>
+      </div>
+    );
+  }
   const statusColor: Record<string, string> = {
     未入荷: "bg-gray-100 text-gray-600",
     一部入荷: "bg-amber-100 text-amber-700",
