@@ -29,8 +29,8 @@ type ShortageRow = { supplier_name: string; item_name: string };
 type Summary = {
   suppliers: SupplierRow[];
   stores: StoreRow[];
-  ordered_qty: number;
-  issued_qty: number;
+  ordered_rows: number;
+  issued_rows: number;
   waiting: WaitingRow[];
   shortage_items: ShortageRow[];
 };
@@ -191,10 +191,10 @@ export default function ProgressPage() {
               color="bg-emerald-500"
             />
             <StatCard
-              title="ラベル発行(数量)"
-              main={`${pct(data.issued_qty, data.ordered_qty)}%`}
-              sub={`${data.issued_qty.toLocaleString()} / ${data.ordered_qty.toLocaleString()} 個分`}
-              value={pct(data.issued_qty, data.ordered_qty)}
+              title="ラベル発行"
+              main={`${labelTotal.toLocaleString()} 枚`}
+              sub={`品目×店舗 ${data.issued_rows.toLocaleString()} / ${data.ordered_rows.toLocaleString()} 件(${pct(data.issued_rows, data.ordered_rows)}%)が発注どおり発行済み`}
+              value={pct(data.issued_rows, data.ordered_rows)}
             />
             <StatCard
               title="出荷検品"
