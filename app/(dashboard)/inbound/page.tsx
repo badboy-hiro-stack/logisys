@@ -123,9 +123,14 @@ export default function InboundListPage() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold">入荷・ラベル発行</h1>
-        <Link href="/inbound/capture" className="text-sm text-brand underline">
-          発注データ取込(伝票撮影)
-        </Link>
+        <div className="flex gap-4">
+          <Link href="/inbound/csv" className="text-sm text-brand underline">
+            CSV取込
+          </Link>
+          <Link href="/inbound/capture" className="text-sm text-brand underline">
+            画像取込
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5">
