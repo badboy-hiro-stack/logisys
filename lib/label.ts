@@ -118,7 +118,42 @@ export async function printLabel(data: LabelPrintData): Promise<void> {
 
 // Android:Smooth Print に印刷を依頼する。
 // 返事は XML(<response><result>メッセージ</result><code>コード</code></response>)。
-async function printLabelAndroid(data: LabelPrintData): Promise<void> {
+// Smooth Print は、1枚の印刷が終わる前に次の依頼が来るとエラー(UnknownError)を返すことがある。
+// そのため、依頼を1枚ずつ順番に送り、前の印刷から少し間をあけ、失敗したときは待ってやり直す。
+const ANDROID_GAP_MS = 2500; // 前の印刷の完了から、次の依頼までの最低の間隔
+const ANDROID_RETRY_WAIT_MS = 3000; // 失敗したときの待ち時間
+const ANDROID_MAX_TRIES = 3;
+let androidQueue: Promise<void> = Promise.resolve();
+let androidLastDone = 0;
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function printLabelAndroid(data: LabelPrintData): Promise<void> {
+  const job = androidQueue.then(async () => {
+    const wait = androidLastDone + ANDROID_GAP_MS - Date.now();
+    if (wait > 0) await sleep(wait);
+    let lastErr: unknown = null;
+    for (let i = 1; i <= ANDROID_MAX_TRIES; i++) {
+      try {
+        await printLabelAndroidOnce(data);
+        androidLastDone = Date.now();
+        return;
+      } catch (e) {
+        lastErr = e;
+        // アプリと通信できない場合は、待っても直らないので、すぐ失敗にする
+        if (e instanceof Error && e.message.startsWith("Smooth Print と通信")) break;
+        if (i < ANDROID_MAX_TRIES) await sleep(ANDROID_RETRY_WAIT_MS);
+      }
+    }
+    androidLastDone = Date.now();
+    throw lastErr;
+  });
+  // 失敗しても、次の依頼が止まらないようにする
+  androidQueue = job.catch(() => undefined);
+  return job;
+}
+
+async function printLabelAndroidOnce(data: LabelPrintData): Promise<void> {
   const parts = [
     `filename=${encodeURIComponent(SMOOTHPRINT_TEMPLATE)}`,
     `size=${encodeURIComponent(SMOOTHPRINT_SIZE)}`,
