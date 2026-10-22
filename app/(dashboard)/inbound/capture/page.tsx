@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
 
 // 伝票上の店舗の並び順(左から右)。60が50・51より左にある点に注意。
 const STORES = [
@@ -376,7 +375,6 @@ export default function CapturePage() {
 
   return (
     <div>
-      <Link href="/inbound/csv" className="text-sm text-blue-600 underline mb-3 inline-block">CSVから取り込む →</Link>
       <h1 className="text-lg font-semibold mb-4">発注データ取込(伝票撮影・OCR確認)</h1>
 
       <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 max-w-2xl">
