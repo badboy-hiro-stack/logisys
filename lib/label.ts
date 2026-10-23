@@ -120,9 +120,9 @@ export async function printLabel(data: LabelPrintData): Promise<void> {
 // 返事は XML(<response><result>メッセージ</result><code>コード</code></response>)。
 // Smooth Print は、1枚の印刷が終わる前に次の依頼が来るとエラー(UnknownError)を返すことがある。
 // そのため、依頼を1枚ずつ順番に送り、前の印刷から少し間をあけ、失敗したときは待ってやり直す。
-const ANDROID_GAP_MS = 2500; // 前の印刷の完了から、次の依頼までの最低の間隔
-const ANDROID_RETRY_WAIT_MS = 3000; // 失敗したときの待ち時間
-const ANDROID_MAX_TRIES = 3;
+const ANDROID_GAP_MS = 1000; // 前の印刷の完了から、次の依頼までの最低の間隔
+const ANDROID_RETRY_WAIT_MS = 2000; // 失敗したときの待ち時間
+const ANDROID_MAX_TRIES = 4;
 let androidQueue: Promise<void> = Promise.resolve();
 let androidLastDone = 0;
 
