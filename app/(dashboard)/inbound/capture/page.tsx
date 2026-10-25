@@ -57,6 +57,8 @@ type Line = OcrLine & {
   ocr_item_name: string; // OCRが読み取った品名(元の値)
   master_name: string | null; // 品目マスタに登録されている品名(未登録ならnull)
   looked_up_code: string; // 最後にマスタ照合したEOSコード
+  ocr_origin: string; // OCRが読み取った産地(元の値)
+  master_origin: string | null; // 品目マスタの産地(未登録・空欄ならnull)
 };
 type OcrResult = Omit<OcrResultRaw, "lines"> & { lines: Line[] };
 
@@ -122,16 +124,19 @@ export default function CapturePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // EOSコードから、品目マスタに登録されている品名を取得する
-  async function fetchMasterNames(codes: string[]): Promise<Record<string, string>> {
+  async function fetchMasterNames(
+    codes: string[]
+  ): Promise<Record<string, { name: string; origin: string | null }>> {
     const unique = Array.from(new Set(codes.filter(Boolean)));
     if (unique.length === 0) return {};
     const { data } = await supabase
       .from("m_items")
-      .select("item_code, item_name")
+      .select("item_code, item_name, default_origin")
       .in("item_code", unique);
-    const map: Record<string, string> = {};
+    const map: Record<string, { name: string; origin: string | null }> = {};
     (data ?? []).forEach((r) => {
-      map[r.item_code as string] = r.item_name as string;
+      const o = ((r.default_origin as string | null) ?? "").trim();
+      map[r.item_code as string] = { name: r.item_name as string, origin: o || null };
     });
     return map;
   }
@@ -170,13 +175,19 @@ export default function CapturePage() {
         // マスタの品名を優先して使う(小さい文字の品名の読み間違いを防ぐ)
         const masterNames = await fetchMasterNames(raw.lines.map((l) => l.eos_code));
         const lines: Line[] = raw.lines.map((l) => {
-          const master = masterNames[l.eos_code] ?? null;
+          const m = masterNames[l.eos_code] ?? null;
+          const master = m ? m.name : null;
+          const masterOrigin = m ? m.origin : null;
           return {
             ...l,
             ocr_item_name: l.item_name,
             master_name: master,
             looked_up_code: l.eos_code,
             item_name: master ?? l.item_name,
+            ocr_origin: l.origin,
+            master_origin: masterOrigin,
+            // マスタに産地があれば、OCRの読取より優先する(毎回読み間違える産地の対策)
+            origin: masterOrigin ?? l.origin,
           };
         });
         setResult({ ...raw, lines });
@@ -237,7 +248,8 @@ export default function CapturePage() {
 
     const code = target.eos_code;
     const names = await fetchMasterNames([code]);
-    const master = names[code] ?? null;
+    const master = names[code] ? names[code].name : null;
+    const masterOrigin = names[code] ? names[code].origin : null;
     setResult((prev) => {
       if (!prev) return prev;
       const lines = [...prev.lines];
@@ -248,6 +260,8 @@ export default function CapturePage() {
         master_name: master,
         looked_up_code: code,
         item_name: master ?? cur.item_name,
+        master_origin: masterOrigin,
+        origin: masterOrigin ?? cur.origin,
       };
       return { ...prev, lines };
     });
@@ -571,6 +585,39 @@ export default function CapturePage() {
                         </span>
                       )}
                     </div>
+
+                    {/* 産地とマスタの照合結果 */}
+                    {line.master_origin !== null && (
+                      <div className="mb-2 text-xs">
+                        {line.origin === line.master_origin ? (
+                          <span className="text-blue-600">
+                            マスタの産地「{line.master_origin}」を使用中
+                            {line.ocr_origin !== line.master_origin &&
+                              `(OCR読取:「${line.ocr_origin || "空欄"}」)`}
+                            {line.ocr_origin !== line.master_origin && (
+                              <button
+                                type="button"
+                                onClick={() => updateLine(li, { origin: line.ocr_origin })}
+                                className="underline ml-2"
+                              >
+                                OCRの読取に戻す
+                              </button>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-amber-600">
+                            マスタの産地:「{line.master_origin}」
+                            <button
+                              type="button"
+                              onClick={() => updateLine(li, { origin: line.master_origin as string })}
+                              className="underline ml-2"
+                            >
+                              マスタの産地を使う
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {mismatch && (
                       <p className="text-xs text-red-600 font-medium mb-2">
