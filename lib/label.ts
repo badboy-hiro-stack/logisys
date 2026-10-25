@@ -110,6 +110,7 @@ export async function printLabel(data: LabelPrintData): Promise<void> {
       date: data.date,
       supplier: data.supplier,
       qr: data.qr,
+      label_id: data.qr,
     },
     { copies: 1, printName: "logisys", ignoreMissingKeys: true }
   );
@@ -163,9 +164,8 @@ async function printLabelAndroidOnce(data: LabelPrintData): Promise<void> {
     `text_qty=${encodeURIComponent(data.qty)}`,
     `text_origin=${encodeURIComponent(data.origin)}`,
     `text_spec=${encodeURIComponent(data.spec)}`,
-    `text_date=${encodeURIComponent(data.date)}`,
-    `text_supplier=${encodeURIComponent(data.supplier)}`,
     `barcode_qr=${encodeURIComponent(data.qr)}`,
+    `text_label_id=${encodeURIComponent(data.qr)}`,
   ];
   const url = `${SMOOTHPRINT_URL}?${parts.join("&")}`;
 
