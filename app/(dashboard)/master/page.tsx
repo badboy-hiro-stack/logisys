@@ -56,6 +56,7 @@ const CONFIGS: Record<string, Config> = {
       { key: "default_pack_size", label: "標準入数", type: "int", width: "w-24" },
       { key: "loose_case_size", label: "ケース入数(株数管理品のみ)", type: "int", width: "w-40" },
       { key: "bundle_group", label: "まとめグループ(任意)", type: "text", width: "w-36" },
+      { key: "default_origin", label: "産地(OCRで読み間違える品目のみ)", type: "text", width: "w-36" },
     ],
   },
 };
