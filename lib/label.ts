@@ -69,6 +69,12 @@ export function formatStoreLabel(storeName: string, sign: string | null | undefi
   return sign ? `${storeName}（${sign}）` : storeName;
 }
 
+// 「小原店（B）」から記号「B」だけを取り出す。記号がなければ、そのまま返す
+export function storeSignText(store: string): string {
+  const m = /[（(]([^）)]+)[）)]\s*$/.exec(store);
+  return m ? m[1] : store;
+}
+
 // 例外から画面に出す文字列を取り出す(bpac-jsは文字列やオブジェクトを投げることがある)
 export function errorText(e: unknown): string {
   if (typeof e === "string") return e;
@@ -103,7 +109,7 @@ export async function printLabel(data: LabelPrintData): Promise<void> {
   const ok = await label.print(
     {
       item: data.item,
-      store: data.store,
+      sign: storeSignText(data.store),
       qty: data.qty,
       origin: data.origin,
       spec: data.spec,
@@ -160,7 +166,7 @@ async function printLabelAndroidOnce(data: LabelPrintData): Promise<void> {
     `size=${encodeURIComponent(SMOOTHPRINT_SIZE)}`,
     "copies=1",
     `text_item=${encodeURIComponent(data.item)}`,
-    `text_store=${encodeURIComponent(data.store)}`,
+    `text_sign=${encodeURIComponent(storeSignText(data.store))}`,
     `text_qty=${encodeURIComponent(data.qty)}`,
     `text_origin=${encodeURIComponent(data.origin)}`,
     `text_spec=${encodeURIComponent(data.spec)}`,
