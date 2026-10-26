@@ -13,9 +13,9 @@ export const LABEL_TEMPLATE_PATH = "C:\\logisys\\label.lbx";
 // ---- Android(Smooth Print)用の設定 ----
 // Smooth Print に共有したテンプレートのファイル名。テンプレートの中の4項目(産地・規格・納品日・仕入先)は、
 // 表の外に置いたもの(label_sp.lbx)でないと、差し替えが効かない。
-export const SMOOTHPRINT_TEMPLATE = "label_sp.lbx";
+export const SMOOTHPRINT_TEMPLATE = "label_sp_1209.lbx";
 // 用紙の指定(DK-2205:幅62mmの連続ロール紙)
-export const SMOOTHPRINT_SIZE = "RollW62";
+export const SMOOTHPRINT_SIZE = "DieCutW62H29";
 const SMOOTHPRINT_URL = "http://localhost:8088/print";
 
 export function isAndroid(): boolean {
