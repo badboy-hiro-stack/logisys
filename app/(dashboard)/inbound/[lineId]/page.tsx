@@ -105,6 +105,16 @@ type RawLine = {
   t_orders: RawOrder | RawOrder[] | null;
 };
 
+// 株数管理品の入荷記録の表示(例:6株×15ケース+5株(95株))
+function unitArrivalText(unitSize: number, total: number): string {
+  const cases = Math.floor(total / unitSize);
+  const rest = total % unitSize;
+  const parts: string[] = [];
+  if (cases > 0) parts.push(`${unitSize}株×${cases}ケース`);
+  if (rest > 0) parts.push(`${cases > 0 ? "+" : ""}ばら${rest}株`);
+  return `${parts.join("")}(${total}株)`;
+}
+
 export default function LineDetailPage() {
   const supabase = createClient();
   const params = useParams<{ lineId: string }>();
@@ -298,16 +308,22 @@ export default function LineDetailPage() {
     let entries: { pack: number; cases: number; unit: number | null }[];
     if (isUnit) {
       // 株数管理品:ケース数 × ケース入数 を「株数」として記録する
+      // ケース数 × ケース入数 + ばらの株数(例:15ケース×6株 + ばら5株 = 95株)
       const cases = Number(arrivalInput[1] || 0);
-      if (!Number.isInteger(cases) || cases < 1) {
-        setMessage({ type: "error", text: "今回の入荷ケース数を1以上の整数で入力してください" });
+      const loose = Number(arrivalInput[0] || 0);
+      if (!Number.isInteger(cases) || cases < 0 || !Number.isInteger(loose) || loose < 0) {
+        setMessage({ type: "error", text: "ケース数とばらの株数は、0以上の整数で入力してください" });
+        return;
+      }
+      if (cases + loose < 1) {
+        setMessage({ type: "error", text: "今回の入荷ケース数か、ばらの株数を入力してください" });
         return;
       }
       if (!caseSize) {
         setMessage({ type: "error", text: "ケース入数を入力してください" });
         return;
       }
-      entries = [{ pack: 1, cases: cases * caseSize, unit: caseSize }];
+      entries = [{ pack: 1, cases: cases * caseSize + loose, unit: caseSize }];
     } else {
       entries = calc.packs
         .map((p) => ({ pack: p, cases: Number(arrivalInput[p] || 0), unit: null as number | null }))
@@ -360,7 +376,7 @@ export default function LineDetailPage() {
     }
     const desc =
       a.unit_size && a.unit_size > 0
-        ? `${a.unit_size}株×${a.case_count / a.unit_size}ケース`
+        ? unitArrivalText(a.unit_size, a.case_count)
         : `入数${a.pack_size}・${a.case_count}箱`;
     if (!window.confirm(`入荷記録(${desc})を取り消します。よろしいですか?`)) return;
     setBusy(true);
@@ -706,10 +722,11 @@ export default function LineDetailPage() {
       <section className="bg-white border border-gray-200 rounded-xl p-5 mb-5">
         {isUnit ? (
           <>
-            <h2 className="text-sm font-semibold mb-1">① 入荷数を記録(ケース数)</h2>
+            <h2 className="text-sm font-semibold mb-1">① 入荷数を記録(ケース数・ばらの株数)</h2>
             <p className="text-xs text-gray-500 mb-3">
               株数で管理する品目です。伝票の「入数×」は無視して、数字を株数として扱います。
               入荷したケースの入数(2L・L・Mなどで変わります)とケース数を入力してください。
+              ケースで割り切れないときは、ばらの株数も入力します(例:95株 = 15ケース + ばら5株)。
             </p>
             <div className="flex flex-wrap items-end gap-4 mb-3 text-sm">
               <label className="flex flex-col text-xs text-gray-500">
@@ -727,7 +744,7 @@ export default function LineDetailPage() {
                 今回の入荷ケース数
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   value={arrivalInput[1] ?? ""}
                   onChange={(e) => setArrivalInput({ ...arrivalInput, 1: e.target.value })}
                   disabled={busy || closed}
@@ -735,9 +752,21 @@ export default function LineDetailPage() {
                   className="border border-gray-300 rounded px-2 py-1 text-sm text-right w-28 mt-1"
                 />
               </label>
+              <label className="flex flex-col text-xs text-gray-500">
+                今回の入荷株数(ばら)
+                <input
+                  type="number"
+                  min={0}
+                  value={arrivalInput[0] ?? ""}
+                  onChange={(e) => setArrivalInput({ ...arrivalInput, 0: e.target.value })}
+                  disabled={busy || closed}
+                  placeholder="株"
+                  className="border border-gray-300 rounded px-2 py-1 text-sm text-right w-28 mt-1"
+                />
+              </label>
               <span className="text-xs text-gray-500 pb-1">
-                {Number(arrivalInput[1] || 0) > 0 && caseSize
-                  ? `= ${Number(arrivalInput[1]) * caseSize}株`
+                {(Number(arrivalInput[1] || 0) > 0 || Number(arrivalInput[0] || 0) > 0) && caseSize
+                  ? `= ${Number(arrivalInput[1] || 0) * caseSize + Number(arrivalInput[0] || 0)}株`
                   : ""}
               </span>
             </div>
@@ -816,7 +845,7 @@ export default function LineDetailPage() {
                   </span>
                   <span>
                     {a.unit_size
-                      ? `${a.unit_size}株×${a.case_count / a.unit_size}ケース(${a.case_count}株)`
+                      ? unitArrivalText(a.unit_size, a.case_count)
                       : `入数${a.pack_size} / ${a.case_count}箱`}
                   </span>
                   <button
