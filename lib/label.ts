@@ -230,7 +230,7 @@ export class PrintBatchError extends Error {
 
 // 複数枚をまとめて印刷する。
 //   ・Android:25枚ずつ1回の依頼にまとめる(各回の最後にカット)。失敗した回から後は未印刷。
-//   ・Windows:従来どおり1枚ずつ。
+//   ・Windows:1回の印刷にまとめ、最後の1枚の後だけカット(1枚のときは従来どおり)。
 // 失敗したときは PrintBatchError を投げる(printed = 印刷できた枚数)。
 const ANDROID_BATCH_SIZE = 25;
 export async function printLabels(list: LabelPrintData[]): Promise<void> {
@@ -243,11 +243,36 @@ export async function printLabels(list: LabelPrintData[]): Promise<void> {
         await androidJob(() => printBatchAndroidOnce(chunk));
         printed += chunk.length;
       }
+    } else if (list.length === 1) {
+      await printLabel(list[0]);
+      printed = 1;
     } else {
-      for (const d of list) {
-        await printLabel(d);
-        printed++;
-      }
+      // Windows(b-PAC):複数枚を1回の印刷にまとめ、最後の1枚の後だけカットする。
+      // bpac-js の print() は、データの配列を渡すと、1回の印刷として順に印刷する。
+      const { default: BrotherSDK } = await import("bpac-js");
+      const label = new BrotherSDK({
+        templatePath: LABEL_TEMPLATE_PATH,
+        printer: getPrinterName(),
+      });
+      const rows = list.map((d) => ({
+        item: d.item,
+        sign: storeSignText(d.store),
+        qty: d.qty,
+        origin: d.origin,
+        spec: d.spec,
+        qr: d.qr,
+        label_id: d.qr,
+      }));
+      const opts = {
+        copies: 1,
+        printName: "logisys",
+        ignoreMissingKeys: true,
+        autoCut: true,
+        cutAtEnd: true,
+      } as unknown as Parameters<typeof label.print>[1];
+      const ok = await label.print(rows, opts);
+      if (!ok) throw new Error("プリンターに印刷データを送信できませんでした");
+      printed = list.length;
     }
   } catch (e) {
     throw new PrintBatchError(errorText(e), printed);
