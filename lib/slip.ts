@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import JSZip from "jszip";
 // 仕分け伝票(Excel)の生成。public/slip_template.xlsx に値を流し込む。
 
 /** 伝票の店舗列の並び(テンプレートの E〜O 列に対応) */
@@ -22,28 +22,6 @@ export type SlipData = {
   targetDate: string; // YYYY-MM-DD
   items: SlipItem[];
 };
-
-function cloneSheet(wb: any, src: any, name: string) {
-  const ws = wb.addWorksheet(name);
-  ws.pageSetup = JSON.parse(JSON.stringify(src.pageSetup));
-  for (let c = 1; c <= 16; c++) {
-    const w = src.getColumn(c).width;
-    if (w) ws.getColumn(c).width = w;
-  }
-  for (let r = 1; r <= 28; r++) {
-    const h = src.getRow(r).height;
-    if (h) ws.getRow(r).height = h;
-    for (let c = 1; c <= 16; c++) {
-      const s = src.getCell(r, c);
-      const d = ws.getCell(r, c);
-      d.value = s.value;
-      d.style = JSON.parse(JSON.stringify(s.style));
-    }
-  }
-  const merges: string[] = (src.model && src.model.merges) || [];
-  merges.forEach((m) => ws.mergeCells(m));
-  return ws;
-}
 
 function storeText(pm: Record<number, number> | undefined): string {
   if (!pm) return "";
@@ -72,57 +50,101 @@ function asNumOrText(v: string): string | number {
   return /^\d+$/.test(v) ? Number(v) : v;
 }
 
-/** 1ベンダー分のExcelを作り、バイナリを返す */
-export async function buildSlipBuffer(data: SlipData): Promise<ArrayBuffer> {
-  const ExcelJS: any = (await import("exceljs")).default;
-  const res = await fetch("/slip_template.xlsx", { cache: "no-store" });
-  if (!res.ok) throw new Error("伝票テンプレート(public/slip_template.xlsx)が見つかりません");
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(await res.arrayBuffer());
-  const base = wb.worksheets[0];
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** シートXML内のセルの値を差し替える(スタイルは元のまま) */
+function setCell(xml: string, ref: string, value: string | number | null): string {
+  const re = new RegExp('<c r="' + ref + '"([^>]*?)(?:/>|>[\\s\\S]*?</c>)');
+  const m = re.exec(xml);
+  if (!m) throw new Error("テンプレートにセル " + ref + " がありません");
+  const sm = /s="(\d+)"/.exec(m[1]);
+  const s = sm ? ' s="' + sm[1] + '"' : "";
+  let cell: string;
+  if (value === null || value === "") cell = '<c r="' + ref + '"' + s + "/>";
+  else if (typeof value === "number") cell = '<c r="' + ref + '"' + s + ' t="n"><v>' + value + "</v></c>";
+  else cell = '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t>' + esc(value) + "</t></is></c>";
+  return xml.slice(0, m.index) + cell + xml.slice(m.index + m[0].length);
+}
+
+function excelSerial(y: number, m: number, d: number): number {
+  return Math.round(Date.UTC(y, m - 1, d) / 86400000) + 25569;
+}
+
+/** テンプレートに値を流し込み、xlsxのバイナリを返す(ExcelJSを使わずXMLを直接編集) */
+export async function fillSlip(templateBuf: ArrayBuffer, data: SlipData): Promise<ArrayBuffer> {
+  const zip = await JSZip.loadAsync(templateBuf);
+  const baseXml = await zip.file("xl/worksheets/sheet1.xml")!.async("string");
 
   const items = [...data.items].sort((a, b) => a.eos.localeCompare(b.eos));
   const pageCount = Math.max(1, Math.ceil(items.length / ROWS_PER_SHEET));
-  const sheets: any[] = [base];
-  for (let n = 2; n <= pageCount; n++) sheets.push(cloneSheet(wb, base, String(n)));
 
   const [y, m, d] = data.targetDate.split("-").map(Number);
   const now = new Date();
-  const issued = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const issued = excelSerial(now.getFullYear(), now.getMonth() + 1, now.getDate());
 
-  sheets.forEach((ws, idx) => {
-    ws.name = String(idx + 1);
-    ws.getCell("A2").value = asNumOrText(data.vendorCode);
-    ws.getCell("A3").value = data.vendorName;
-    ws.getCell("C2").value = y;
-    ws.getCell("C2").numFmt = '0"年"';
-    ws.getCell("D2").value = m;
-    ws.getCell("D2").numFmt = '0"月"';
-    ws.getCell("E2").value = d;
-    ws.getCell("M1").value = issued;
-    ws.getCell("M1").numFmt = "m/d";
-    const pg = ws.getCell("P1");
-    pg.value = idx + 1;
-    pg.font = { size: 36, bold: true };
-    pg.alignment = { horizontal: "center", vertical: "middle" };
+  const cols = ["", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"];
 
-    const chunk = items.slice(idx * ROWS_PER_SHEET, (idx + 1) * ROWS_PER_SHEET);
+  for (let p = 0; p < pageCount; p++) {
+    let xml = p === 0 ? baseXml : baseXml.replace(' tabSelected="1"', "");
+    xml = setCell(xml, "A2", asNumOrText(data.vendorCode));
+    xml = setCell(xml, "A3", data.vendorName);
+    xml = setCell(xml, "C2", y);
+    xml = setCell(xml, "D2", m);
+    xml = setCell(xml, "E2", d);
+    xml = setCell(xml, "M1", issued);
+    xml = setCell(xml, "P1", p + 1);
+    const chunk = items.slice(p * ROWS_PER_SHEET, (p + 1) * ROWS_PER_SHEET);
     chunk.forEach((it, i) => {
       const r = FIRST_ROW + i;
-      ws.getCell(r, 1).value = asNumOrText(it.eos);
-      ws.getCell(r, 2).value = it.origin;
-      ws.getCell(r, 3).value = it.name;
-      ws.getCell(r, 4).value = it.spec;
+      xml = setCell(xml, "A" + r, asNumOrText(it.eos));
+      xml = setCell(xml, "B" + r, it.origin);
+      xml = setCell(xml, "C" + r, it.name);
+      xml = setCell(xml, "D" + r, it.spec);
       SLIP_STORES.forEach((sc, si) => {
         const t = storeText(it.stores[sc]);
-        if (t) ws.getCell(r, STORE_COLS[si]).value = t;
+        if (t) xml = setCell(xml, cols[STORE_COLS[si]] + r, t);
       });
       const tt = totalText(it);
-      if (tt !== "") ws.getCell(r, 16).value = tt;
+      if (tt !== "") xml = setCell(xml, "P" + r, tt);
     });
-  });
+    zip.file("xl/worksheets/sheet" + (p + 1) + ".xml", xml);
+  }
 
-  return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+  if (pageCount > 1) {
+    let wbx = await zip.file("xl/workbook.xml")!.async("string");
+    let rels = await zip.file("xl/_rels/workbook.xml.rels")!.async("string");
+    let ct = await zip.file("[Content_Types].xml")!.async("string");
+    let sheetsAdd = "";
+    let relsAdd = "";
+    let ctAdd = "";
+    for (let p = 2; p <= pageCount; p++) {
+      sheetsAdd +=
+        '<sheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" name="' +
+        p + '" sheetId="' + p + '" state="visible" r:id="rIdSheet' + p + '"/>';
+      relsAdd +=
+        '<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="/xl/worksheets/sheet' +
+        p + '.xml" Id="rIdSheet' + p + '"/>';
+      ctAdd +=
+        '<Override PartName="/xl/worksheets/sheet' + p +
+        '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+    }
+    wbx = wbx.replace("</sheets>", sheetsAdd + "</sheets>");
+    rels = rels.replace("</Relationships>", relsAdd + "</Relationships>");
+    ct = ct.replace("</Types>", ctAdd + "</Types>");
+    zip.file("xl/workbook.xml", wbx);
+    zip.file("xl/_rels/workbook.xml.rels", rels);
+    zip.file("[Content_Types].xml", ct);
+  }
+
+  return await zip.generateAsync({ type: "arraybuffer", compression: "DEFLATE" });
+}
+
+export async function buildSlipBuffer(data: SlipData): Promise<ArrayBuffer> {
+  const res = await fetch("/slip_template.xlsx", { cache: "no-store" });
+  if (!res.ok) throw new Error("伝票テンプレート(public/slip_template.xlsx)が見つかりません");
+  return fillSlip(await res.arrayBuffer(), data);
 }
 
 export function slipFileName(d: SlipData): string {
