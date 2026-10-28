@@ -14,7 +14,7 @@ export const LABEL_TEMPLATE_PATH = "C:\\logisys\\label.lbx";
 // Smooth Print に共有したテンプレートのファイル名。テンプレートの中の4項目(産地・規格・納品日・仕入先)は、
 // 表の外に置いたもの(label_sp.lbx)でないと、差し替えが効かない。
 export const SMOOTHPRINT_TEMPLATE = "label_sp_1209.lbx";
-// 用紙の指定(DK-2205:幅62mmの連続ロール紙)
+// 用紙の指定(DK-1209:62mm×29mmのダイカットラベル)
 export const SMOOTHPRINT_SIZE = "DieCutW62H29";
 const SMOOTHPRINT_URL = "http://localhost:8088/print";
 
@@ -64,15 +64,15 @@ export function formatLabelId(supplierCode: string, targetDate: string, no: numb
   return `${supplierCode}-${y.slice(2)}${m}${d}-${String(no).padStart(4, "0")}`;
 }
 
-// 店舗名(記号)。記号が未登録の店舗は店舗名だけにする。
-export function formatStoreLabel(storeName: string, sign: string | null | undefined): string {
-  return sign ? `${storeName}（${sign}）` : storeName;
-}
-
 // 「小原店（B）」から記号「B」だけを取り出す。記号がなければ、そのまま返す
 export function storeSignText(store: string): string {
   const m = /[（(]([^）)]+)[）)]\s*$/.exec(store);
   return m ? m[1] : store;
+}
+
+// 店舗名(記号)。記号が未登録の店舗は店舗名だけにする。
+export function formatStoreLabel(storeName: string, sign: string | null | undefined): string {
+  return sign ? `${storeName}（${sign}）` : storeName;
 }
 
 // 例外から画面に出す文字列を取り出す(bpac-jsは文字列やオブジェクトを投げることがある)
@@ -95,7 +95,7 @@ export function errorText(e: unknown): string {
 //   物理的なエラーは検知できないため、出てきたラベルを目視で確認する運用とする。
 export async function printLabel(data: LabelPrintData): Promise<void> {
   if (isAndroid()) {
-    await printLabelAndroid(data);
+    await androidJob(() => printBatchAndroidOnce([data]));
     return;
   }
   // ブラウザ側(拡張機能)でしか動かないライブラリなので、使うときに読み込む
@@ -113,8 +113,6 @@ export async function printLabel(data: LabelPrintData): Promise<void> {
       qty: data.qty,
       origin: data.origin,
       spec: data.spec,
-      date: data.date,
-      supplier: data.supplier,
       qr: data.qr,
       label_id: data.qr,
     },
@@ -135,14 +133,14 @@ let androidLastDone = 0;
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-function printLabelAndroid(data: LabelPrintData): Promise<void> {
+function androidJob(send: () => Promise<void>): Promise<void> {
   const job = androidQueue.then(async () => {
     const wait = androidLastDone + ANDROID_GAP_MS - Date.now();
     if (wait > 0) await sleep(wait);
     let lastErr: unknown = null;
     for (let i = 1; i <= ANDROID_MAX_TRIES; i++) {
       try {
-        await printLabelAndroidOnce(data);
+        await send();
         androidLastDone = Date.now();
         return;
       } catch (e) {
@@ -160,30 +158,52 @@ function printLabelAndroid(data: LabelPrintData): Promise<void> {
   return job;
 }
 
-async function printLabelAndroidOnce(data: LabelPrintData): Promise<void> {
-  const parts = [
-    `filename=${encodeURIComponent(SMOOTHPRINT_TEMPLATE)}`,
-    `size=${encodeURIComponent(SMOOTHPRINT_SIZE)}`,
-    "copies=1",
-    `text_item=${encodeURIComponent(data.item)}`,
-    `text_sign=${encodeURIComponent(storeSignText(data.store))}`,
-    `text_qty=${encodeURIComponent(data.qty)}`,
-    `text_origin=${encodeURIComponent(data.origin)}`,
-    `text_spec=${encodeURIComponent(data.spec)}`,
-    `barcode_qr=${encodeURIComponent(data.qr)}`,
-    `text_label_id=${encodeURIComponent(data.qr)}`,
-  ];
+// Smooth Print に送る1回分(複数枚)。複数レイアウト印刷の書き方:filename1, filename2, …
+//   text_filename1.オブジェクト名 / barcode_filename1.オブジェクト名
+// 1回の依頼にまとめた複数枚は、Smooth Print の「最後をカット」で、最後の1枚の後だけカットされる。
+async function printBatchAndroidOnce(list: LabelPrintData[]): Promise<void> {
+  const e = encodeURIComponent;
+  const parts: string[] = [`size=${e(SMOOTHPRINT_SIZE)}`];
+  if (list.length === 1) {
+    // 1枚のときは、従来の単一レイアウトの書き方(動作確認済み)
+    const d = list[0];
+    parts.push(
+      `filename=${e(SMOOTHPRINT_TEMPLATE)}`,
+      "copies=1",
+      `text_item=${e(d.item)}`,
+      `text_sign=${e(storeSignText(d.store))}`,
+      `text_qty=${e(d.qty)}`,
+      `text_origin=${e(d.origin)}`,
+      `text_spec=${e(d.spec)}`,
+      `barcode_qr=${e(d.qr)}`,
+      `text_label_id=${e(d.qr)}`
+    );
+  } else {
+    list.forEach((d, i) => {
+      const n = i + 1;
+      parts.push(
+        `filename${n}=${e(SMOOTHPRINT_TEMPLATE)}`,
+        `text_filename${n}.item=${e(d.item)}`,
+        `text_filename${n}.sign=${e(storeSignText(d.store))}`,
+        `text_filename${n}.qty=${e(d.qty)}`,
+        `text_filename${n}.origin=${e(d.origin)}`,
+        `text_filename${n}.spec=${e(d.spec)}`,
+        `barcode_filename${n}.qr=${e(d.qr)}`,
+        `text_filename${n}.label_id=${e(d.qr)}`
+      );
+    });
+  }
   const url = `${SMOOTHPRINT_URL}?${parts.join("&")}`;
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30000);
+  const timer = setTimeout(() => ctrl.abort(), 60000);
   let text: string;
   try {
     const res = await fetch(url, { method: "POST", signal: ctrl.signal });
     text = await res.text();
     if (!res.ok) throw new Error(`Smooth Print がエラーを返しました(HTTP ${res.status})`);
-  } catch (e) {
-    if (e instanceof Error && e.message.startsWith("Smooth Print")) throw e;
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Smooth Print")) throw err;
     throw new Error(
       "Smooth Print と通信できませんでした。アプリを入れているか、プリンターとつながっているかを確認してください"
     );
@@ -196,5 +216,40 @@ async function printLabelAndroidOnce(data: LabelPrintData): Promise<void> {
   const ok = /SUCCESS/i.test(code) || (!code && /SUCCESS/i.test(result));
   if (!ok) {
     throw new Error(`Smooth Print:${result || "印刷できませんでした"}${code ? `(${code})` : ""}`);
+  }
+}
+
+// 途中で失敗したときに、何枚目まで印刷できたかを伝える例外
+export class PrintBatchError extends Error {
+  printed: number;
+  constructor(message: string, printed: number) {
+    super(message);
+    this.printed = printed;
+  }
+}
+
+// 複数枚をまとめて印刷する。
+//   ・Android:25枚ずつ1回の依頼にまとめる(各回の最後にカット)。失敗した回から後は未印刷。
+//   ・Windows:従来どおり1枚ずつ。
+// 失敗したときは PrintBatchError を投げる(printed = 印刷できた枚数)。
+const ANDROID_BATCH_SIZE = 25;
+export async function printLabels(list: LabelPrintData[]): Promise<void> {
+  if (list.length === 0) return;
+  let printed = 0;
+  try {
+    if (isAndroid()) {
+      for (let i = 0; i < list.length; i += ANDROID_BATCH_SIZE) {
+        const chunk = list.slice(i, i + ANDROID_BATCH_SIZE);
+        await androidJob(() => printBatchAndroidOnce(chunk));
+        printed += chunk.length;
+      }
+    } else {
+      for (const d of list) {
+        await printLabel(d);
+        printed++;
+      }
+    }
+  } catch (e) {
+    throw new PrintBatchError(errorText(e), printed);
   }
 }

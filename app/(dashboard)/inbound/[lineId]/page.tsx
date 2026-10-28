@@ -19,7 +19,8 @@ import {
   formatLabelId,
   formatStoreLabel,
   getPrinterName,
-  printLabel,
+  printLabels,
+  PrintBatchError,
   setPrinterName,
   type LabelPrintData,
 } from "@/lib/label";
@@ -379,22 +380,22 @@ export default function LineDetailPage() {
   // ---- ラベルの印刷 ----------------------------------------------------
   // 1枚ずつ順番に印刷する。途中で失敗したら、そこで止めて、未印刷分を記録しておく
   async function printAll(items: PendingPrint[]): Promise<boolean> {
-    for (let i = 0; i < items.length; i++) {
-      setProgress(`${i + 1}/${items.length}枚目を印刷中…`);
-      try {
-        await printLabel(items[i].data);
-      } catch (e) {
-        setFailedPrints(items.slice(i));
-        setProgress(null);
-        setMessage({
-          type: "error",
-          text:
-            `${i + 1}枚目の印刷でエラーが発生しました: ${errorText(e)}。` +
-            "ラベルの番号は登録済みです。b-PAC拡張機能・プリンター名・テンプレート(C:\\logisys\\label.lbx)を確認して、" +
+    // まとめて印刷する(Android:1回の依頼で、最後の1枚の後だけカット)
+    setProgress(`${items.length}枚を印刷中…`);
+    try {
+      await printLabels(items.map((it) => it.data));
+    } catch (e) {
+      const printed = e instanceof PrintBatchError ? e.printed : 0;
+      setFailedPrints(items.slice(printed));
+      setProgress(null);
+      setMessage({
+        type: "error",
+        text:
+          `${printed + 1}枚目以降の印刷でエラーが発生しました: ${errorText(e)}。` +
+          "ラベルの番号は登録済みです。b-PAC拡張機能・プリンター名・テンプレート(C:\\logisys\\label.lbx)を確認して、" +
             "「未印刷のラベルを再印刷」を押してください",
-        });
-        return false;
-      }
+      });
+      return false;
     }
     setFailedPrints([]);
     setProgress(null);
