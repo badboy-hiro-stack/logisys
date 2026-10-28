@@ -130,6 +130,9 @@ export default function InboundListPage() {
           <Link href="/inbound/capture" className="text-sm text-brand underline">
             画像取込
           </Link>
+          <Link href="/inbound/slip" className="text-sm text-brand underline">
+            伝票出力
+          </Link>
         </div>
       </div>
 
