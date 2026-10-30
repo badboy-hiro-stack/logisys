@@ -82,6 +82,9 @@ export default function ChangesPage() {
   return (
     <div className="max-w-4xl">
       <h1 className="text-lg font-semibold mb-1">当日変更:対象選択</h1>
+      <Link href="/changes/add" className="inline-block mb-3 text-sm text-brand underline">
+        + 当日の追加品目を登録する
+      </Link>
       <p className="text-sm text-gray-600 mb-4">
         入荷当日に数量・入数の変更が入った品目を選びます。<b>ラベルが1枚でも発行済みの品目は編集できません</b>
         (🔒)。変更したことがある品目には 🕘 が付きます。
