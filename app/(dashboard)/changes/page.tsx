@@ -10,6 +10,7 @@ type Target = {
   supplier_name: string;
   item_code: string;
   item_name: string;
+  spec: string | null;
   total_display: string | null;
   arrival_status: string;
   locked: boolean;
@@ -164,10 +165,9 @@ export default function ChangesPage() {
                   <span className="w-6 text-center">{r.locked ? "🔒" : ""}</span>
                   <span className="w-6 text-center">{r.has_history ? "🕘" : ""}</span>
                   <span className="text-xs text-gray-500 w-24 shrink-0">{r.supplier_name}</span>
-                  <span className="flex-1 min-w-0">
-                    <span className={r.locked ? "text-gray-400" : ""}>{r.item_name}</span>
-                    <span className="text-xs text-gray-400 ml-2">{r.item_code}</span>
-                  </span>
+                  <span className="text-xs text-gray-500 w-16 shrink-0">{r.item_code}</span>
+                  <span className={"flex-1 min-w-0 " + (r.locked ? "text-gray-400" : "")}>{r.item_name}</span>
+                  <span className="text-xs text-gray-500 w-28 shrink-0 truncate">{r.spec ?? ""}</span>
                   <span className="w-20 text-right text-xs text-gray-600">{r.total_display ?? ""}</span>
                   <span className="w-16 text-right text-xs text-gray-500">{r.arrival_status}</span>
                 </div>
