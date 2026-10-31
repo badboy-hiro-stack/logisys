@@ -161,16 +161,42 @@ export default function ChangesPage() {
           <ul className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
             {shown.map((r) => {
               const inner = (
-                <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <span className="w-6 text-center">{r.locked ? "🔒" : ""}</span>
-                  <span className="w-6 text-center">{r.has_history ? "🕘" : ""}</span>
-                  <span className="text-xs text-gray-500 w-24 shrink-0">{r.supplier_name}</span>
-                  <span className="text-xs text-gray-500 w-16 shrink-0">{r.item_code}</span>
-                  <span className={"flex-1 min-w-0 " + (r.locked ? "text-gray-400" : "")}>{r.item_name}</span>
-                  <span className="text-xs text-gray-500 w-28 shrink-0 truncate">{r.spec ?? ""}</span>
-                  <span className="w-20 text-right text-xs text-gray-600">{r.total_display ?? ""}</span>
-                  <span className="w-16 text-right text-xs text-gray-500">{r.arrival_status}</span>
-                </div>
+                <>
+                  {/* PC・タブレット:1行表示 */}
+                  <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <span className="w-6 text-center">{r.locked ? "🔒" : ""}</span>
+                    <span className="w-6 text-center">{r.has_history ? "🕘" : ""}</span>
+                    <span className="text-xs text-gray-500 w-24 shrink-0">{r.supplier_name}</span>
+                    <span className="text-xs text-gray-500 w-16 shrink-0">{r.item_code}</span>
+                    <span className={"flex-1 min-w-0 " + (r.locked ? "text-gray-400" : "")}>{r.item_name}</span>
+                    <span className="text-xs text-gray-500 w-28 shrink-0 truncate">{r.spec ?? ""}</span>
+                    <span className="w-20 text-right text-xs text-gray-600 whitespace-nowrap">{r.total_display ?? ""}</span>
+                    <span className="w-16 text-right text-xs text-gray-500 whitespace-nowrap">{r.arrival_status}</span>
+                  </div>
+
+                  {/* スマホ:2段表示 */}
+                  <div className="sm:hidden flex items-start gap-2 px-3 py-2.5 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <div className={"font-medium " + (r.locked ? "text-gray-400" : "")}>
+                        {r.locked ? "🔒 " : ""}
+                        {r.has_history ? "🕘 " : ""}
+                        {r.item_name}
+                        {r.spec ? (
+                          <span className="ml-2 text-xs font-normal text-gray-700 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
+                            {r.spec}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {r.item_code}　{r.supplier_name}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-xs text-gray-700 whitespace-nowrap">{r.total_display ?? ""}</div>
+                      <div className="text-xs text-gray-500 whitespace-nowrap">{r.arrival_status}</div>
+                    </div>
+                  </div>
+                </>
               );
               return (
                 <li key={r.order_line_id}>
