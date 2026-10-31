@@ -564,7 +564,7 @@ export default function BundlePage() {
                 ))}
               </ul>
 
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <p className="text-xs text-gray-500">店舗ごとの箱({storeCodes.length}店舗)</p>
                 <button
                   onClick={() => {
@@ -581,17 +581,17 @@ export default function BundlePage() {
                 {info.map(({ sc, contents, state }) => {
                   const s = data.stores[sc];
                   return (
-                    <div key={sc} className="py-2 border-b border-gray-100 flex items-start gap-3 text-sm">
-                      <div className="w-44 shrink-0">
+                    <div key={sc} className="py-2 border-b border-gray-100 flex flex-wrap items-start gap-x-3 gap-y-1 text-sm">
+                      <div className="flex-1 min-w-0 sm:w-44 sm:flex-none">
                         {sc} {s?.store_name ?? ""}
                         {s?.sign ? <span className="text-gray-400">({s.sign})</span> : null}
                       </div>
-                      <div className="flex-1 text-xs text-gray-600">
+                      <div className="order-last w-full text-xs text-gray-600 sm:order-none sm:w-auto sm:flex-1">
                         {contents.length === 0
                           ? "(内訳なし)"
                           : contents.map((c) => `${c.line.item_name}${c.row.case_count}`).join(" / ")}
                       </div>
-                      <div className="shrink-0 w-40 text-right">
+                      <div className="shrink-0 text-right sm:w-40">
                         {state === "done" ? (
                           <>
                             <span className="text-green-600 text-xs mr-2">発行済み</span>

@@ -182,7 +182,7 @@ export default function InboundListPage() {
 
         {lines.length > 0 && (
           <>
-            <div className="grid grid-cols-[1.5rem_1fr_6rem_9rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
+            <div className="hidden sm:grid grid-cols-[1.5rem_1fr_6rem_9rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
               <span />
               <span>品目</span>
               <span>全店計</span>
@@ -193,7 +193,7 @@ export default function InboundListPage() {
                 <li key={l.order_line_id} className="border-b border-gray-100">
                   <Link
                     href={`/inbound/${l.order_line_id}`}
-                    className="grid grid-cols-[1.5rem_1fr_6rem_9rem] gap-x-3 items-center py-2.5 text-sm hover:bg-gray-50"
+                    className="grid grid-cols-[1.5rem_1fr] gap-x-2 gap-y-0.5 items-center py-2.5 text-sm hover:bg-gray-50 sm:grid-cols-[1.5rem_1fr_6rem_9rem] sm:gap-x-3"
                   >
                     <span className="text-green-600 text-base leading-none">
                       {isDone(l.status) ? "✓" : ""}
@@ -205,11 +205,16 @@ export default function InboundListPage() {
                         <span className="text-xs text-gray-400 ml-2">産地:{l.origin}</span>
                       ) : null}
                     </span>
-                    <span className="text-gray-700">{l.total_display ?? ""}</span>
-                    <span className={STATUS_STYLE[l.status] ?? "text-gray-500"}>
-                      {l.arrivedCases}/{l.orderedCases}箱
-                      {l.status === "一部入荷" && "(一部入荷)"}
-                      {l.status === "欠品確定" && "(欠品確定)"}
+                    <span className="col-start-2 flex items-center justify-between gap-3 sm:contents">
+                      <span className="text-gray-700 whitespace-nowrap">
+                        <span className="sm:hidden text-xs text-gray-400">全店計 </span>
+                        {l.total_display ?? ""}
+                      </span>
+                      <span className={(STATUS_STYLE[l.status] ?? "text-gray-500") + " whitespace-nowrap"}>
+                        {l.arrivedCases}/{l.orderedCases}箱
+                        {l.status === "一部入荷" && "(一部入荷)"}
+                        {l.status === "欠品確定" && "(欠品確定)"}
+                      </span>
                     </span>
                   </Link>
                 </li>

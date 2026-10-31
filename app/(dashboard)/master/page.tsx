@@ -214,9 +214,85 @@ function MasterTable({ cfg }: { cfg: Config }) {
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-3">{error}</div>}
       {message && <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3 mb-3">{message}</div>}
       {!rows && !error && <p className="text-sm text-gray-500">読み込み中…</p>}
+      
+      {/* スマホ用:1件ずつのカード表示(PC・タブレットは下の表をそのまま使う) */}
+      {rows && (
+        <div className="sm:hidden space-y-3">
+          {adding && (
+            <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
+              {cfg.fields.map((f) => (
+                <div key={f.key} className="mb-2">
+                  <div className="text-xs text-gray-500 mb-0.5">{f.label}</div>
+                  {f.auto ? <span className="text-gray-400 text-sm">自動</span> : input(f, adding, setAdding)}
+                </div>
+              ))}
+              <div className="text-sm text-right">
+                <button type="button" onClick={() => save(true)} className="text-blue-600 mr-4">保存</button>
+                <button type="button" onClick={() => setAdding(null)} className="text-gray-500">取消</button>
+              </div>
+            </div>
+          )}
+          {shown.map((r) => {
+            const code = String(r[cfg.codeKey]);
+            const isEdit = editing === code;
+            if (isEdit) {
+              return (
+                <div key={code} className="border border-blue-200 bg-blue-50 rounded-lg p-3">
+                  {cfg.fields.map((f) => (
+                    <div key={f.key} className="mb-2">
+                      <div className="text-xs text-gray-500 mb-0.5">{f.label}</div>
+                      {input(f, draft, setDraft, f.key === cfg.codeKey || !!f.auto)}
+                    </div>
+                  ))}
+                  <div className="text-sm text-right">
+                    <button type="button" onClick={() => save(false)} className="text-blue-600 mr-4">保存</button>
+                    <button type="button" onClick={() => setEditing(null)} className="text-gray-500">取消</button>
+                  </div>
+                </div>
+              );
+            }
+            const others = cfg.fields.slice(2).filter((f) => r[f.key] !== null && r[f.key] !== undefined && String(r[f.key]) !== "");
+            return (
+              <div key={code} className="bg-white border border-gray-200 rounded-lg p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-500">{String(r[cfg.fields[0].key] ?? "")}</div>
+                    <div className="font-medium text-sm">{String(r[cfg.fields[1]?.key] ?? "")}</div>
+                  </div>
+                  <div className="shrink-0 whitespace-nowrap text-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(code);
+                        setAdding(null);
+                        setDraft(Object.fromEntries(cfg.fields.map((f) => [f.key, String(r[f.key] ?? "")])));
+                      }}
+                      className="text-blue-600 mr-4"
+                    >
+                      編集
+                    </button>
+                    <button type="button" onClick={() => remove(code)} className="text-red-600">削除</button>
+                  </div>
+                </div>
+                {others.length > 0 && (
+                  <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-600">
+                    {others.map((f) => (
+                      <div key={f.key} className="contents">
+                        <dt className="text-gray-400">{f.label}</dt>
+                        <dd>{String(r[f.key])}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </div>
+            );
+          })}
+          {shown.length === 0 && !adding && <p className="text-sm text-gray-500">該当なし</p>}
+        </div>
+      )}
 
       {rows && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 overflow-x-auto">
+        <div className="hidden sm:block bg-white border border-gray-200 rounded-xl p-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-gray-500 text-left">
