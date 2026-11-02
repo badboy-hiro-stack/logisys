@@ -581,12 +581,12 @@ export default function BundlePage() {
                 {info.map(({ sc, contents, state }) => {
                   const s = data.stores[sc];
                   return (
-                    <div key={sc} className="py-2 border-b border-gray-100 flex flex-wrap items-start gap-x-3 gap-y-1 text-sm">
+                    <div key={sc} className="py-2 border-b border-gray-100 flex flex-wrap items-start gap-x-3 gap-y-1 text-base sm:text-sm">
                       <div className="flex-1 min-w-0 sm:w-44 sm:flex-none">
                         {sc} {s?.store_name ?? ""}
                         {s?.sign ? <span className="text-gray-400">({s.sign})</span> : null}
                       </div>
-                      <div className="order-last w-full text-xs text-gray-600 sm:order-none sm:w-auto sm:flex-1">
+                      <div className="order-last w-full text-sm sm:text-xs text-gray-600 sm:order-none sm:w-auto sm:flex-1">
                         {contents.length === 0
                           ? "(内訳なし)"
                           : contents.map((c) => `${c.line.item_name}${c.row.case_count}`).join(" / ")}
@@ -594,7 +594,7 @@ export default function BundlePage() {
                       <div className="shrink-0 text-right sm:w-40">
                         {state === "done" ? (
                           <>
-                            <span className="text-green-600 text-xs mr-2">発行済み</span>
+                            <span className="text-green-600 text-sm sm:text-xs mr-2">発行済み</span>
                             <button
                               onClick={() => reprintStore(b, sc)}
                               disabled={busy}
@@ -607,7 +607,7 @@ export default function BundlePage() {
                           <span className="text-xs text-gray-400">対象なし</span>
                         ) : (
                           <>
-                            {state === "partial" && <span className="text-amber-600 text-xs mr-2">一部のみ</span>}
+                            {state === "partial" && <span className="text-amber-600 text-sm sm:text-xs mr-2">一部のみ</span>}
                             <button
                               onClick={() => issueStores(b, [sc])}
                               disabled={busy}

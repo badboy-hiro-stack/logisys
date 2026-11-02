@@ -222,7 +222,7 @@ function MasterTable({ cfg }: { cfg: Config }) {
             <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
               {cfg.fields.map((f) => (
                 <div key={f.key} className="mb-2">
-                  <div className="text-xs text-gray-500 mb-0.5">{f.label}</div>
+                  <div className="text-sm text-gray-500 mb-0.5">{f.label}</div>
                   {f.auto ? <span className="text-gray-400 text-sm">自動</span> : input(f, adding, setAdding)}
                 </div>
               ))}
@@ -240,7 +240,7 @@ function MasterTable({ cfg }: { cfg: Config }) {
                 <div key={code} className="border border-blue-200 bg-blue-50 rounded-lg p-3">
                   {cfg.fields.map((f) => (
                     <div key={f.key} className="mb-2">
-                      <div className="text-xs text-gray-500 mb-0.5">{f.label}</div>
+                      <div className="text-sm text-gray-500 mb-0.5">{f.label}</div>
                       {input(f, draft, setDraft, f.key === cfg.codeKey || !!f.auto)}
                     </div>
                   ))}
@@ -256,10 +256,10 @@ function MasterTable({ cfg }: { cfg: Config }) {
               <div key={code} className="bg-white border border-gray-200 rounded-lg p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-xs text-gray-500">{String(r[cfg.fields[0].key] ?? "")}</div>
-                    <div className="font-medium text-sm">{String(r[cfg.fields[1]?.key] ?? "")}</div>
+                    <div className="text-sm text-gray-500">{String(r[cfg.fields[0].key] ?? "")}</div>
+                    <div className="font-medium text-base">{String(r[cfg.fields[1]?.key] ?? "")}</div>
                   </div>
-                  <div className="shrink-0 whitespace-nowrap text-sm">
+                  <div className="shrink-0 whitespace-nowrap text-base">
                     <button
                       type="button"
                       onClick={() => {
@@ -275,7 +275,7 @@ function MasterTable({ cfg }: { cfg: Config }) {
                   </div>
                 </div>
                 {others.length > 0 && (
-                  <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-600">
+                  <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm text-gray-600">
                     {others.map((f) => (
                       <div key={f.key} className="contents">
                         <dt className="text-gray-400">{f.label}</dt>

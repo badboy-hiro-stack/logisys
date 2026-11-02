@@ -175,25 +175,25 @@ export default function ChangesPage() {
                   </div>
 
                   {/* スマホ:2段表示 */}
-                  <div className="sm:hidden flex items-start gap-2 px-3 py-2.5 text-sm">
+                  <div className="sm:hidden flex items-start gap-2 px-3 py-2.5 text-base">
                     <div className="flex-1 min-w-0">
                       <div className={"font-medium " + (r.locked ? "text-gray-400" : "")}>
                         {r.locked ? "🔒 " : ""}
                         {r.has_history ? "🕘 " : ""}
                         {r.item_name}
                         {r.spec ? (
-                          <span className="ml-2 text-xs font-normal text-gray-700 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
+                          <span className="ml-2 text-sm font-normal text-gray-700 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
                             {r.spec}
                           </span>
                         ) : null}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-sm text-gray-500 mt-0.5">
                         {r.item_code}　{r.supplier_name}
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="text-xs text-gray-700 whitespace-nowrap">{r.total_display ?? ""}</div>
-                      <div className="text-xs text-gray-500 whitespace-nowrap">{r.arrival_status}</div>
+                      <div className="text-sm text-gray-700 whitespace-nowrap">{r.total_display ?? ""}</div>
+                      <div className="text-sm text-gray-500 whitespace-nowrap">{r.arrival_status}</div>
                     </div>
                   </div>
                 </>
