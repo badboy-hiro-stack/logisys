@@ -175,7 +175,7 @@ export default function ChangesPage() {
                   </div>
 
                   {/* スマホ:2段表示 */}
-                  <div className="sm:hidden flex items-start gap-2 px-3 py-2.5 text-base">
+                  <div className="sm:hidden flex items-start gap-2 px-3 py-2.5 text-2xl">
                     <div className="flex-1 min-w-0">
                       <div className={"font-medium " + (r.locked ? "text-gray-400" : "")}>
                         {r.locked ? "🔒 " : ""}
