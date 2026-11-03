@@ -106,7 +106,7 @@ export default function OutboundSelectPage() {
           const complete = !none && c.done === c.total;
           const started = c.done > 0;
           const box =
-            "flex items-center justify-between rounded-xl border px-4 py-3 " +
+            "flex items-center justify-between rounded-xl border px-4 py-4 sm:py-3 " +
             (none
               ? "bg-gray-50 border-gray-100 text-gray-400"
               : complete
@@ -117,8 +117,8 @@ export default function OutboundSelectPage() {
           const inner = (
             <>
               <div>
-                <div className="text-sm font-medium">{storeTitle(s.store_code, s.store_name, s.sign)}</div>
-                <div className="text-xs mt-0.5">
+                <div className="text-4xl sm:text-sm font-medium">{storeTitle(s.store_code, s.store_name, s.sign)}</div>
+                <div className="text-lg sm:text-xs mt-0.5">
                   {none ? (
                     "対象のラベルなし"
                   ) : (
@@ -130,9 +130,9 @@ export default function OutboundSelectPage() {
               </div>
               <div className="flex items-center gap-2">
                 {dispatched.has(s.store_code) && (
-                  <span className="text-xs bg-green-600 text-white rounded-full px-2 py-0.5">配送OK</span>
+                  <span className="text-sm sm:text-xs bg-green-600 text-white rounded-full px-2 py-0.5">配送OK</span>
                 )}
-                {!none && <span className="text-gray-400">›</span>}
+                {!none && <span className="text-6xl sm:text-base text-gray-400">›</span>}
               </div>
             </>
           );
