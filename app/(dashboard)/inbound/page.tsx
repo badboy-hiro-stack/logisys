@@ -193,7 +193,7 @@ export default function InboundListPage() {
                 <li key={l.order_line_id} className="border-b border-gray-100">
                   <Link
                     href={`/inbound/${l.order_line_id}`}
-                    className="grid grid-cols-[1.5rem_1fr] gap-x-2 gap-y-0.5 items-center py-2.5 text-base sm:text-sm hover:bg-gray-50 sm:grid-cols-[1.5rem_1fr_6rem_9rem] sm:gap-x-3"
+                    className="grid grid-cols-[1.5rem_1fr] gap-x-2 gap-y-0.5 items-center py-2.5 text-2xl sm:text-sm font-medium sm:font-normal hover:bg-gray-50 sm:grid-cols-[1.5rem_1fr_6rem_9rem] sm:gap-x-3"
                   >
                     <span className="text-green-600 text-base leading-none">
                       {isDone(l.status) ? "✓" : ""}
@@ -202,12 +202,12 @@ export default function InboundListPage() {
                       {l.item_name}
                       {l.spec ? <span className="text-gray-500"> {l.spec}</span> : null}
                       {l.origin ? (
-                        <span className="text-sm sm:text-xs text-gray-400 ml-2">産地:{l.origin}</span>
+                        <span className="text-base sm:text-sm text-gray-400 ml-2">産地:{l.origin}</span>
                       ) : null}
                     </span>
                     <span className="col-start-2 flex items-center justify-between gap-3 sm:contents">
                       <span className="text-gray-700 whitespace-nowrap">
-                        <span className="sm:hidden text-sm text-gray-400">全店計 </span>
+                        <span className="sm:hidden text-base text-gray-400">全店計 </span>
                         {l.total_display ?? ""}
                       </span>
                       <span className={(STATUS_STYLE[l.status] ?? "text-gray-500") + " whitespace-nowrap"}>
