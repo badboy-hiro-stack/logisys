@@ -110,10 +110,20 @@ export default function ReportsPage() {
     setBusy(null);
   }
 
-  const shortages = [...(data?.shortages ?? [])].sort(byStoreOrder);
-  const qtyChanges = (data?.changes ?? []).filter((c) => c.kind === "数量変更");
-  const packChanges = (data?.changes ?? []).filter((c) => c.kind === "入数変更");
-  const originChanges = (data?.changes ?? []).filter((c) => c.kind === "産地変更");
+  // 同じ時刻・同じ店舗の行があっても、並びが入れ替わらないように、最後はIDで順番を決める
+  const byChange = (a: Change, b: Change) =>
+    a.changed_at < b.changed_at ? 1 : a.changed_at > b.changed_at ? -1 : a.log_id - b.log_id;
+  const shortages = [...(data?.shortages ?? [])].sort(
+    (a, b) =>
+      byStoreOrder(a, b) ||
+      a.supplier_name.localeCompare(b.supplier_name) ||
+      a.item_name.localeCompare(b.item_name) ||
+      a.store_qty_id - b.store_qty_id
+  );
+  const sortedChanges = [...(data?.changes ?? [])].sort(byChange);
+  const qtyChanges = sortedChanges.filter((c) => c.kind === "数量変更");
+  const packChanges = sortedChanges.filter((c) => c.kind === "入数変更");
+  const originChanges = sortedChanges.filter((c) => c.kind === "産地変更");
 
   const unreported =
     shortages.filter((r) => !r.reported_at).length +
@@ -147,6 +157,19 @@ export default function ReportsPage() {
 
   const reportedText = (at: string | null, by: string | null) =>
     at ? `報告済み ${formatTime(at)}${by ? `(${by})` : ""}` : "";
+
+  // PDF:印刷と同じ内容で、ブラウザの印刷画面を開く(送信先を「PDFに保存」にする)
+  // ファイル名は「当日変更・欠品報告_日付」になる
+  function exportPdf() {
+    const prev = document.title;
+    document.title = `当日変更・欠品報告_${date}`;
+    const restore = () => {
+      document.title = prev;
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+    window.print();
+  }
 
   return (
     <div className="max-w-5xl">
@@ -184,10 +207,10 @@ export default function ReportsPage() {
         </label>
         <button
           type="button"
-          onClick={() => window.print()}
+          onClick={exportPdf}
           className="border border-blue-600 text-blue-600 text-sm px-3 py-1 rounded-lg print:hidden"
         >
-          印刷
+          印刷 or PDF
         </button>
       </div>
       <p className="text-sm text-gray-600 mb-4 print:hidden">
@@ -222,7 +245,12 @@ export default function ReportsPage() {
           </div>
 
           {/* 欠品 */}
-          <section className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
+          <section
+            className={
+              "bg-white border border-gray-200 rounded-xl p-4 mb-5" +
+              (showS.length === 0 ? " print:hidden" : "")
+            }
+          >
             <h2 className="text-sm font-semibold mb-2">
               欠品({shortages.length}件)
               <span className="text-xs text-gray-500 font-normal ml-2 print:hidden">
@@ -286,7 +314,13 @@ export default function ReportsPage() {
               { title: "産地変更", rows: showO, count: originChanges.length, unit: "" },
             ] as const
           ).map((g) => (
-            <section key={g.title} className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
+            <section
+              key={g.title}
+              className={
+                "bg-white border border-gray-200 rounded-xl p-4 mb-5" +
+                (g.rows.length === 0 ? " print:hidden" : "")
+              }
+            >
               <h2 className="text-sm font-semibold mb-2">
                 {g.title}({g.count}件)
               </h2>
@@ -302,7 +336,9 @@ export default function ReportsPage() {
                         <th className="py-1 pr-2 font-normal">品名</th>
                         <th className="py-1 pr-2 font-normal">店舗</th>
                         <th className="py-1 px-2 font-normal">変更内容</th>
-                        <th className="py-1 px-2 font-normal">担当・時刻</th>
+                        <th className="py-1 px-2 font-normal">時刻
+                          <span className="print:hidden">・担当</span>
+                        </th>
                         <th className="py-1 pl-2 font-normal print:hidden"></th>
                       </tr>
                     </thead>
@@ -361,6 +397,9 @@ export default function ReportsPage() {
               )}
             </section>
           ))}
+          {showS.length + showQ.length + showP.length + showO.length === 0 && (
+            <p className="hidden print:block text-sm">この日の欠品・変更はありません。</p>
+          )}
         </>
       )}
     </div>
