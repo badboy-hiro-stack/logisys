@@ -276,17 +276,17 @@ export default function OutboundStorePage() {
     }
     const l = c.label;
     const detail = (
-      <div className="text-sm space-y-0.5 mt-2">
+      <div className="text-xl sm:text-sm space-y-0.5 mt-2">
         <p>
           <span className="text-gray-500">品目:</span>
-          <span className="font-semibold text-base">
+          <span className="font-semibold text-xl">
             {l.item_name}
             {l.spec ? ` ${l.spec}` : ""}
           </span>
         </p>
         <p>
           <span className="text-gray-500">数量:</span>
-          <span className="font-semibold text-base">
+          <span className="font-semibold text-xl">
             {l.qty_text ?? `${l.pack_size}×${l.case_count}`}
           </span>
           {l.label_kind !== "まとめ" && <span className="text-gray-400 ml-2">({l.qty}個)</span>}
@@ -301,10 +301,15 @@ export default function OutboundStorePage() {
         )}
         <p>
           <span className="text-gray-500">店舗:</span>
-          {storeTitle(l.store_code, l.store_name, l.store_sign)}
+          <span className="font-semibold text-xl">
+            {storeTitle(l.store_code, l.store_name, l.store_sign)}
+          </span>
         </p>
-        <p className="text-xs text-gray-500">
-          {l.supplier_name} / {l.label_id}
+        <p className="text-base sm:text-sm font-medium">
+          {l.supplier_name}
+        </p>
+        <p className="text-base sm:text-sm text-gray-500">
+          {l.label_id}
         </p>
       </div>
     );
@@ -367,7 +372,7 @@ export default function OutboundStorePage() {
             </p>
           </div>
         ) : (
-          <p className="mt-3 text-xs text-gray-500">産地の指定なし</p>
+          <p className="mt-3 text-sm text-gray-500">産地の指定なし</p>
         )}
         <button
           onClick={confirmCurrent}
@@ -392,7 +397,7 @@ export default function OutboundStorePage() {
       <div className="sticky top-0 z-10 bg-gray-50 pt-2 pb-3">
         <div className="bg-white border border-gray-200 rounded-xl px-4 py-3">
           <div className="flex items-baseline justify-between gap-2">
-            <h1 className="text-lg font-bold">{title}</h1>
+            <h1 className="text-2xl font-bold">{title}</h1>
             <span className="text-xs text-gray-500">納品日 {date.replace(/-/g, "/")}</span>
           </div>
           <div className="flex items-center gap-3 mt-2">

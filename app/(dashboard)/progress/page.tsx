@@ -192,8 +192,8 @@ export default function ProgressPage() {
             />
             <StatCard
               title="ラベル発行"
-              main={`${pct(data.issued_rows, data.ordered_rows)}%`}
-              sub={`品目×店舗 ${data.issued_rows.toLocaleString()} / ${data.ordered_rows.toLocaleString()} 件が発注どおり発行済み`}
+              main={`${labelTotal.toLocaleString()} 枚`}
+              sub={`品目×店舗 ${data.issued_rows.toLocaleString()} / ${data.ordered_rows.toLocaleString()} 件(${pct(data.issued_rows, data.ordered_rows)}%)が発注どおり発行済み`}
               value={pct(data.issued_rows, data.ordered_rows)}
             />
             <StatCard
@@ -213,7 +213,7 @@ export default function ProgressPage() {
           {/* 仕入先別の入荷 */}
           <section className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
             <h2 className="text-sm font-semibold mb-3">仕入先別の入荷状況(品目数)</h2>
-            <div className="overflow-x-auto">
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-gray-500 text-left">
@@ -246,6 +246,39 @@ export default function ProgressPage() {
                 </tbody>
               </table>
             </div>
+            
+            {/* スマホ用:仕入先ごとのカード表示 */}
+            <ul className="sm:hidden divide-y divide-gray-100">
+              {suppliers.map((s) => (
+                <li key={s.supplier_code} className="py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-base font-medium">{s.supplier_name}</span>
+                    <span className="text-sm text-gray-500 whitespace-nowrap">品目 {s.total}</span>
+                  </div>
+                  <div className="mt-2">
+                    <Bar value={pct(s.complete, s.total - s.shortage)} color="bg-emerald-500" />
+                  </div>
+                  <div className="mt-2 grid grid-cols-4 gap-2 text-center">
+                    <div>
+                      <div className="text-xs text-gray-400">入荷完了</div>
+                      <div className="text-lg font-semibold text-emerald-700">{s.complete}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400">一部入荷</div>
+                      <div className="text-lg font-semibold text-amber-600">{s.partial}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400">未入荷</div>
+                      <div className="text-lg font-semibold">{s.none}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400">欠品</div>
+                      <div className="text-lg font-semibold text-red-600">{s.shortage}</div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
 
             {data.waiting.length > 0 && (
               <div className="mt-3">

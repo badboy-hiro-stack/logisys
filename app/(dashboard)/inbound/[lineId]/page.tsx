@@ -678,7 +678,7 @@ export default function LineDetailPage() {
       </Link>
 
       <div className="flex items-baseline gap-3 mt-2 mb-1 flex-wrap">
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-2xl sm:text-base font-semibold">
           {line.item_name}
           {line.spec ? <span className="text-gray-500 font-normal"> {line.spec}</span> : null}
         </h1>
@@ -791,8 +791,8 @@ export default function LineDetailPage() {
           </>
         ) : (
           <>
-            <h2 className="text-sm font-semibold mb-3">① 入荷数を記録(箱数)</h2>
-            <div className="grid grid-cols-[5rem_1fr_1fr_1fr_7rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
+            <h2 className="text-xl sm:text-sm font-semibold mb-3">① 入荷数を記録(箱数)</h2>
+            <div className="hidden sm:grid grid-cols-[5rem_1fr_1fr_1fr_7rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
               <span>入数</span>
               <span>発注</span>
               <span>累計入荷</span>
@@ -802,20 +802,29 @@ export default function LineDetailPage() {
             {calc.packs.map((p) => (
               <div
                 key={p}
-                className="grid grid-cols-[5rem_1fr_1fr_1fr_7rem] gap-x-3 items-center py-2 text-sm border-b border-gray-100"
+                className="grid grid-cols-3 gap-x-3 gap-y-2 items-end py-3 text-xl border-b border-gray-100 sm:grid-cols-[5rem_1fr_1fr_1fr_7rem] sm:items-center sm:py-2 sm:text-sm"
               >
-                <span className="font-medium">{p}入り</span>
-                <span>{calc.ordered.get(p) ?? 0}箱</span>
-                <span>{calc.arrived.get(p) ?? 0}箱</span>
-                <span className="text-brand font-medium">{Math.max(0, calc.available(p))}箱</span>
+                <span className="col-span-3 font-medium sm:col-span-1">{p}入り</span>
+                <span>
+                  <span className="block text-base text-gray-400 sm:hidden">発注</span>
+                  {calc.ordered.get(p) ?? 0}箱
+                </span>
+                <span>
+                  <span className="block text-base text-gray-400 sm:hidden">累計入荷</span>
+                  {calc.arrived.get(p) ?? 0}箱
+                </span>
+                <span className="text-brand font-medium">
+                  <span className="block text-base font-normal text-gray-400 sm:hidden">発行可能(残)</span>
+                  {Math.max(0, calc.available(p))}箱
+                </span>
                 <input
                   type="number"
                   min={1}
                   value={arrivalInput[p] ?? ""}
                   onChange={(e) => setArrivalInput({ ...arrivalInput, [p]: e.target.value })}
                   disabled={busy || closed}
-                  placeholder="箱"
-                  className="border border-gray-300 rounded px-2 py-1 text-sm text-right w-full"
+                  placeholder="今回の入荷数(箱)"
+                  className="col-span-3 border border-gray-300 rounded px-2 py-2 text-base text-right w-full sm:col-span-1 sm:py-1 sm:text-sm"
                 />
               </div>
             ))}
@@ -865,7 +874,7 @@ export default function LineDetailPage() {
       {/* ラベルの発行 */}
       <section className="bg-white border border-gray-200 rounded-xl p-5 mb-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 className="text-sm font-semibold">② 店舗別にラベルを発行</h2>
+          <h2 className="text-xl sm:text-sm font-semibold">② 店舗別にラベルを発行</h2>
           <label className="flex items-center gap-2 text-xs text-gray-500">
             プリンター名
             <input
@@ -922,7 +931,7 @@ export default function LineDetailPage() {
             )}
           </div>
         )}
-        <div className="grid grid-cols-[1fr_5rem_4rem_4rem_5rem_4.5rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
+        <div className="hidden sm:grid grid-cols-[1fr_5rem_4rem_4rem_5rem_4.5rem] gap-x-3 text-xs text-gray-500 pb-2 border-b border-gray-200">
           <span>店舗</span>
           <span>発注</span>
           <span>発行済</span>
@@ -940,40 +949,49 @@ export default function LineDetailPage() {
             <div
               key={r.id}
               className={
-                "grid grid-cols-[1fr_5rem_4rem_4rem_5rem_4.5rem] gap-x-3 items-center py-2 text-sm border-b border-gray-100 " +
+                "py-3 text-2xl border-b border-gray-100 sm:grid sm:grid-cols-[1fr_5rem_4rem_4rem_5rem_4.5rem] sm:gap-x-3 sm:items-center sm:py-2 sm:text-sm " +
                 (!done && maxIssuable > 0 ? "bg-amber-50/50" : "")
               }
             >
-              <span>
+              <div className="font-medium sm:font-normal">
                 {r.store_code} {store?.store_name ?? ""}
                 {store?.sign ? <span className="text-gray-400">({store.sign})</span> : null}
                 {originByRow[r.id] ? (
-                  <span className="text-xs text-blue-700 ml-2">産地:{originByRow[r.id]}</span>
+                  <span className="text-base sm:text-xs text-blue-700 ml-2 font-normal">産地:{originByRow[r.id]}</span>
                 ) : null}
-              </span>
-              <span>
-                {isUnit ? (
-                  <>
-                    {r.case_count}株
-                    {caseSize ? (
-                      <span className="block text-[10px] text-gray-400">
-                        {Math.floor(r.case_count / caseSize)}ケース
-                        {r.case_count % caseSize ? `+${r.case_count % caseSize}株` : ""}
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    {r.pack_size}×{r.case_count}
-                  </>
-                )}
-              </span>
-              <span className={done ? "text-green-600" : ""}>{issuedN}</span>
-              <span className={done ? "text-green-600 font-medium" : "font-medium"}>{remaining}</span>
+              </div>
+              <div className="mt-1 flex gap-5 text-sm sm:contents">
+                <span>
+                  <span className="text-base text-gray-400 sm:hidden">発注 </span>
+                  {isUnit ? (
+                    <>
+                      {r.case_count}株
+                      {caseSize ? (
+                        <span className="block text-[10px] text-gray-400">
+                          {Math.floor(r.case_count / caseSize)}ケース
+                          {r.case_count % caseSize ? `+${r.case_count % caseSize}株` : ""}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      {r.pack_size}×{r.case_count}
+                    </>
+                  )}
+                </span>
+                <span className={done ? "text-green-600" : ""}>
+                  <span className="text-base text-gray-400 sm:hidden">発行済 </span>
+                  {issuedN}
+                </span>
+                <span className={done ? "text-green-600 font-medium" : "font-medium"}>
+                  <span className="text-base font-normal text-gray-400 sm:hidden">残 </span>
+                  {remaining}
+                </span>
+              </div>
               {done ? (
-                <span className="text-green-600 text-xs col-span-2">完了</span>
+                <span className="mt-1 block text-green-600 text-base sm:mt-0 sm:text-xs sm:col-span-2">完了</span>
               ) : (
-                <>
+                <div className="mt-2 flex gap-2 sm:mt-0 sm:contents">
                   <input
                     type="number"
                     min={1}
@@ -981,16 +999,16 @@ export default function LineDetailPage() {
                     onChange={(e) => setIssueInput({ ...issueInput, [r.id]: e.target.value })}
                     placeholder={String(maxIssuable)}
                     disabled={busy || closed || maxIssuable === 0}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm text-right w-full"
+                    className="flex-1 min-w-0 border border-gray-300 rounded px-2 py-2 text-base text-right sm:flex-none sm:w-full sm:py-1 sm:text-sm"
                   />
                   <button
                     onClick={() => issueOne(r)}
                     disabled={busy || closed || maxIssuable === 0}
-                    className="bg-brand text-white rounded px-2 py-1 text-xs disabled:opacity-40"
+                    className="bg-brand text-white rounded px-5 py-2 text-base sm:px-2 sm:py-1 sm:text-xs disabled:opacity-40"
                   >
                     発行
                   </button>
-                </>
+                </div>
               )}
             </div>
           );
@@ -1006,7 +1024,7 @@ export default function LineDetailPage() {
       {issuedLabels.length > 0 && (
         <section className="bg-white border border-gray-200 rounded-xl p-5 mb-5">
           <details>
-            <summary className="cursor-pointer text-sm font-semibold">
+            <summary className="cursor-pointer text-xl sm:text-sm font-semibold">
               ③ 発行済みラベルの再印刷(同じ番号で印刷し直す・{issuedLabels.length}枚)
             </summary>
             <p className="text-xs text-gray-500 mt-2 mb-3">
@@ -1017,7 +1035,7 @@ export default function LineDetailPage() {
             <button
               onClick={() => reprintIssued(issuedLabels)}
               disabled={busy}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm mb-3 disabled:opacity-50"
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-xl sm:text-sm mb-3 disabled:opacity-50"
             >
               すべて再印刷({issuedLabels.length}枚)
             </button>
@@ -1052,12 +1070,12 @@ export default function LineDetailPage() {
       {/* 入荷の完了(欠品確定) */}
       <section className="mb-10">
         {closed ? (
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-3 text-xl sm:text-sm">
             <span className="text-red-600">この品目は入荷完了(欠品確定)済みです。</span>
             <button
               onClick={reopenLine}
               disabled={busy}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-xl sm:text-sm disabled:opacity-50"
             >
               入荷を再開する
             </button>
@@ -1066,7 +1084,7 @@ export default function LineDetailPage() {
           <button
             onClick={closeLine}
             disabled={busy}
-            className="border border-gray-300 rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+            className="border border-gray-300 rounded-lg px-4 py-2 text-xl sm:text-sm disabled:opacity-50"
           >
             この品目の入荷を完了する(残りは欠品として記録)
           </button>
