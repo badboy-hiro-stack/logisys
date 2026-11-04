@@ -151,10 +151,20 @@ export default function ReportsPage() {
   return (
     <div className="max-w-5xl">
       {/* 印刷するときは、メニューを隠す */}
-      <style>{`@media print { aside, header { display: none !important; } }`}</style>
+            <style>{`@media print { aside, header { display: none !important; } tr { break-inside: avoid; } }`}</style>
+
+      {/* 印刷用の見出し(店舗運営部への報告) */}
+      <div className="hidden print:block mb-4">
+        <h1 className="text-xl font-bold">当日変更・欠品のご報告</h1>
+        <p className="text-base mt-1">AVE 店舗運営部 御中</p>
+        <p className="text-sm mt-1">対象日:{date.replace(/-/g, "/")}</p>
+        <p className="text-sm mt-2">
+          発注どおりに納品できなかった状況(欠品・数量・入数・産地の変更)を、下記のとおりご報告いたします。
+        </p>
+      </div>
 
       <div className="flex flex-wrap items-end gap-3 mb-1">
-        <h1 className="text-lg font-semibold">当日変更・欠品 報告</h1>
+        <h1 className="text-lg font-semibold print:hidden">当日変更・欠品 報告</h1>
         <label className="text-sm flex items-center gap-2 print:hidden">
           日付
           <input
@@ -180,7 +190,7 @@ export default function ReportsPage() {
           印刷
         </button>
       </div>
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-gray-600 mb-4 print:hidden">
         店舗運営部へ<b>当日中に報告</b>するための一覧です。当日に発生した欠品・数量変更・入数変更だけが出ます
         (翌日には繰り越しません)。報告したら、行のチェックを入れてください。
       </p>
@@ -196,7 +206,7 @@ export default function ReportsPage() {
         <>
           <div
             className={
-              "rounded-xl border p-3 mb-5 text-sm " +
+              "rounded-xl border p-3 mb-5 text-sm print:hidden " +
               (total === 0
                 ? "bg-gray-50 border-gray-200 text-gray-600"
                 : unreported === 0
@@ -215,7 +225,7 @@ export default function ReportsPage() {
           <section className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
             <h2 className="text-sm font-semibold mb-2">
               欠品({shortages.length}件)
-              <span className="text-xs text-gray-500 font-normal ml-2">
+              <span className="text-xs text-gray-500 font-normal ml-2 print:hidden">
                 欠品が確定した品目の、ラベルを発行できなかった分
               </span>
             </h2>
@@ -239,9 +249,9 @@ export default function ReportsPage() {
                     {showS.map((r) => (
                       <tr
                         key={r.store_qty_id}
-                        className={"border-t border-gray-100 " + (r.reported_at ? "text-gray-400" : "")}
+                        className={"border-t border-gray-100 " + (r.reported_at ? "text-gray-400 print:text-black" : "")}
                       >
-                        <td className="py-2">
+                        <td className="py-2 print:hidden">
                           <Check
                             checked={!!r.reported_at}
                             disabled={busy === `s-${r.store_qty_id}`}
@@ -302,7 +312,7 @@ export default function ReportsPage() {
                           key={r.log_id}
                           className={"border-t border-gray-100 " + (r.reported_at ? "text-gray-400" : "")}
                         >
-                          <td className="py-2">
+                          <td className="py-2 print:hidden">
                             <Check
                               checked={!!r.reported_at}
                               disabled={busy === `c-${r.log_id}`}
@@ -337,7 +347,8 @@ export default function ReportsPage() {
                             )}
                           </td>
                           <td className="py-2 px-2 text-xs">
-                            {formatTime(r.changed_at)} {r.changed_by_name ?? ""}
+                            {formatTime(r.changed_at)}{" "}
+                            <span className="print:hidden">{r.changed_by_name ?? ""}</span>
                           </td>
                           <td className="py-2 pl-2 text-xs text-green-700 print:hidden">
                             {reportedText(r.reported_at, r.reported_by_name)}
