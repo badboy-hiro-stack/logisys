@@ -960,7 +960,7 @@ export default function LineDetailPage() {
                   <span className="text-base sm:text-xs text-blue-700 ml-2 font-normal">産地:{originByRow[r.id]}</span>
                 ) : null}
               </div>
-              <div className="mt-1 flex gap-5 text-sm sm:contents">
+              <div className="mt-1 flex gap-5 text-xl sm:text-sm font-medium sm:font-normal sm:contents">
                 <span>
                   <span className="text-base text-gray-400 sm:hidden">発注 </span>
                   {isUnit ? (
@@ -1070,12 +1070,12 @@ export default function LineDetailPage() {
       {/* 入荷の完了(欠品確定) */}
       <section className="mb-10">
         {closed ? (
-          <div className="flex items-center gap-3 text-xl sm:text-sm">
+          <div className="flex items-center gap-3 text-base sm:text-sm">
             <span className="text-red-600">この品目は入荷完了(欠品確定)済みです。</span>
             <button
               onClick={reopenLine}
               disabled={busy}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-xl sm:text-sm disabled:opacity-50"
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-base sm:text-sm disabled:opacity-50"
             >
               入荷を再開する
             </button>
@@ -1084,7 +1084,7 @@ export default function LineDetailPage() {
           <button
             onClick={closeLine}
             disabled={busy}
-            className="border border-gray-300 rounded-lg px-4 py-2 text-xl sm:text-sm disabled:opacity-50"
+            className="border border-gray-300 rounded-lg px-4 py-2 text-base sm:text-sm disabled:opacity-50"
           >
             この品目の入荷を完了する(残りは欠品として記録)
           </button>
