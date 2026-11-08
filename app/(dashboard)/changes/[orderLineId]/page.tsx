@@ -295,16 +295,17 @@ export default function ChangeEditPage() {
               <li
                 key={r.key}
                 className={
-                  "flex flex-wrap items-center gap-2 border rounded-lg px-3 py-2 font-semibold text-base sm:text-sm " +
+                  "border rounded-lg px-3 py-2 text-sm sm:flex sm:flex-wrap sm:items-center sm:gap-2 " +
                   (changed ? "border-blue-300 bg-blue-50" : "border-gray-200")
                 }
               >
+                {/* 1行目(スマホ):店舗 */}
                 {r.id === null ? (
                   <select
                     value={r.store_code}
                     onChange={(e) => update(r.key, { store_code: e.target.value })}
                     disabled={locked}
-                    className="border border-gray-300 rounded px-1.5 py-1 text-sm w-40"
+                    className="border border-gray-300 rounded px-1.5 py-1 text-sm w-full sm:w-40"
                   >
                     {stores.map((s) => (
                       <option key={s.store_code} value={s.store_code}>
@@ -313,73 +314,81 @@ export default function ChangeEditPage() {
                     ))}
                   </select>
                 ) : (
-                  <span className={"w-40 " + (cancelled ? "line-through text-gray-400" : "")}>
+                  <span className={"block font-medium sm:font-normal sm:w-40 " + (cancelled ? "line-through text-gray-400" : "")}>
                     {storeName(r.store_code)}
                   </span>
                 )}
-                <input
-                  type="number"
-                  value={r.pack_size}
-                  onChange={(e) => update(r.key, { pack_size: Number(e.target.value) })}
-                  disabled={locked}
-                  title="入数"
-                  className={NUM + " w-16"}
-                />
-                <span>×</span>
-                <input
-                  type="number"
-                  value={r.case_count}
-                  onChange={(e) => update(r.key, { case_count: Number(e.target.value) })}
-                  disabled={locked}
-                  title="箱数"
-                  className={NUM + " w-16"}
-                />
-                <input
-                  type="text"
-                  value={r.origin}
-                  onChange={(e) => update(r.key, { origin: e.target.value })}
-                  disabled={locked}
-                  title="指定産地(空欄なら伝票の産地欄を使います)"
-                  placeholder={info.origin ? `産地(伝票:${info.origin})` : "産地(指定なし)"}
-                  className="border border-gray-300 rounded px-1.5 py-1 text-sm w-40"
-                />
-                {changed && r.id !== null && (
-                  <span className="text-xs text-blue-700">
-                    (変更前 {r.orig_pack}×{r.orig_cases}
-                    {r.origin.trim() !== r.orig_origin ? ` / 産地「${r.orig_origin || "なし"}」` : ""})
-                  </span>
-                )}
-                {r.id === null && <span className="text-xs text-blue-700">追加</span>}
-                {!locked && (
-                  <span className="ml-auto flex gap-2">
-                    {r.id === null ? (
-                      <button
-                        type="button"
-                        onClick={() => removeNew(r.key)}
-                        className="text-xs text-gray-500 hover:text-red-600"
-                      >
-                        ✕ 取り消す
-                      </button>
-                    ) : cancelled ? (
-                      <button
-                        type="button"
-                        onClick={() => update(r.key, { case_count: r.orig_cases || 1, pack_size: r.orig_pack })}
-                        className="text-xs text-blue-600"
-                      >
-                        元に戻す
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => update(r.key, { case_count: 0 })}
-                        className="text-xs text-gray-500 hover:text-red-600"
-                        title="この店舗の注文を取り消す(箱数を0にします)"
-                      >
-                        注文を取り消す
-                      </button>
-                    )}
-                  </span>
-                )}
+
+                {/* 2行目(スマホ):入数 × 箱数 */}
+                <div className="mt-2 flex items-center gap-2 sm:mt-0 sm:contents">
+                  <input
+                    type="number"
+                    value={r.pack_size}
+                    onChange={(e) => update(r.key, { pack_size: Number(e.target.value) })}
+                    disabled={locked}
+                    title="入数"
+                    className={NUM + " w-16"}
+                  />
+                  <span>×</span>
+                  <input
+                    type="number"
+                    value={r.case_count}
+                    onChange={(e) => update(r.key, { case_count: Number(e.target.value) })}
+                    disabled={locked}
+                    title="箱数"
+                    className={NUM + " w-16"}
+                  />
+                </div>
+
+                {/* 3行目(スマホ):産地 と 注文を取り消す */}
+                <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-0 sm:contents">
+                  <input
+                    type="text"
+                    value={r.origin}
+                    onChange={(e) => update(r.key, { origin: e.target.value })}
+                    disabled={locked}
+                    title="指定産地(空欄なら伝票の産地欄を使います)"
+                    placeholder={info.origin ? `産地(伝票:${info.origin})` : "産地(指定なし)"}
+                    className="border border-gray-300 rounded px-1.5 py-1 text-sm flex-1 min-w-0 sm:flex-none sm:w-40"
+                  />
+                  {changed && r.id !== null && (
+                    <span className="order-last w-full text-xs text-blue-700 sm:order-none sm:w-auto">
+                      (変更前 {r.orig_pack}×{r.orig_cases}
+                      {r.origin.trim() !== r.orig_origin ? ` / 産地「${r.orig_origin || "なし"}」` : ""})
+                    </span>
+                  )}
+                  {r.id === null && <span className="text-xs text-blue-700">追加</span>}
+                  {!locked && (
+                    <span className="ml-auto flex gap-2">
+                      {r.id === null ? (
+                        <button
+                          type="button"
+                          onClick={() => removeNew(r.key)}
+                          className="text-xs text-gray-500 hover:text-red-600"
+                        >
+                          ✕ 取り消す
+                        </button>
+                      ) : cancelled ? (
+                        <button
+                          type="button"
+                          onClick={() => update(r.key, { case_count: r.orig_cases || 1, pack_size: r.orig_pack })}
+                          className="text-xs text-blue-600"
+                        >
+                          元に戻す
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => update(r.key, { case_count: 0 })}
+                          className="text-xs text-gray-500 hover:text-red-600"
+                          title="この店舗の注文を取り消す(箱数を0にします)"
+                        >
+                          注文を取り消す
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </div>
               </li>
             );
           })}
