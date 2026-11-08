@@ -254,11 +254,11 @@ export default function ChangeEditPage() {
       </Link>
       <h1 className="text-lg font-semibold mt-2 mb-1">当日変更:編集</h1>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 text-sm">
-        <div className="text-xs text-gray-500">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 text-base sm:text-sm">
+        <div className="text-base sm:text-xs text-gray-500">
           {supplierName}　納品日 {ord?.target_date ?? ""}　{info.item_code}
         </div>
-        <div className="text-base font-semibold">{itemName}</div>
+        <div className="text-2xl sm:text-base font-semibold">{itemName}</div>
         <div className="text-gray-600 mt-1">
           {info.origin ? <>伝票の産地: <b>{info.origin}</b>　</> : null}
           全店計(現在): <b>{info.total_display ?? "-"}</b>　入荷状況: {info.arrival_status}
@@ -286,7 +286,7 @@ export default function ChangeEditPage() {
       )}
 
       <section className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-        <h2 className="text-sm font-semibold mb-2">店舗別の数量</h2>
+        <h2 className="text-lg sm:text-sm font-semibold mb-2">店舗別の数量</h2>
         <ul className="space-y-2">
           {rows.map((r) => {
             const cancelled = r.id !== null && r.case_count === 0;
@@ -295,7 +295,7 @@ export default function ChangeEditPage() {
               <li
                 key={r.key}
                 className={
-                  "flex flex-wrap items-center gap-2 border rounded-lg px-3 py-2 text-sm " +
+                  "flex flex-wrap items-center gap-2 border rounded-lg px-3 py-2 font-semibold text-base sm:text-sm " +
                   (changed ? "border-blue-300 bg-blue-50" : "border-gray-200")
                 }
               >
@@ -386,12 +386,12 @@ export default function ChangeEditPage() {
         </ul>
 
         {!locked && (
-          <button type="button" onClick={addRow} className="mt-2 text-sm text-blue-600 hover:underline">
+          <button type="button" onClick={addRow} className="mt-2 text-base sm:text-sm text-blue-600 hover:underline">
             + 店舗を追加
           </button>
         )}
 
-        <div className="mt-3 text-sm text-gray-600">
+        <div className="mt-3 text-base sm:text-sm text-gray-600">
           合計(個数): 変更前 {oldTotalQty.toLocaleString()} → 変更後{" "}
           <b className={newTotalQty !== oldTotalQty ? "text-blue-700" : ""}>{newTotalQty.toLocaleString()}</b>
         </div>
