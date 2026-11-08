@@ -47,7 +47,7 @@ type LogRow = {
   m_users: { user_name: string } | { user_name: string }[] | null;
 };
 
-const NUM = "border border-gray-300 rounded px-1.5 py-1 text-sm text-right";
+const NUM = "border border-gray-300 rounded px-1.5 py-1 text-xl sm:text-sm font-medium sm:font-normal text-right";
 
 export default function ChangeEditPage() {
   const supabase = createClient();
@@ -295,7 +295,7 @@ export default function ChangeEditPage() {
               <li
                 key={r.key}
                 className={
-                  "border rounded-lg px-3 py-2 text-sm sm:flex sm:flex-wrap sm:items-center sm:gap-2 " +
+                  "border rounded-lg px-3 py-2 text-2xl sm:text-sm sm:flex sm:flex-wrap sm:items-center sm:gap-2 " +
                   (changed ? "border-blue-300 bg-blue-50" : "border-gray-200")
                 }
               >
@@ -327,16 +327,16 @@ export default function ChangeEditPage() {
                     onChange={(e) => update(r.key, { pack_size: Number(e.target.value) })}
                     disabled={locked}
                     title="入数"
-                    className={NUM + " w-16"}
+                    className={NUM + " w-20 sm:w-16"}
                   />
-                  <span>×</span>
+                  <span className="text-2xl sm:text-sm">×</span>
                   <input
                     type="number"
                     value={r.case_count}
                     onChange={(e) => update(r.key, { case_count: Number(e.target.value) })}
                     disabled={locked}
                     title="箱数"
-                    className={NUM + " w-16"}
+                    className={NUM + " w-20 sm:w-16"}
                   />
                 </div>
 
@@ -349,7 +349,7 @@ export default function ChangeEditPage() {
                     disabled={locked}
                     title="指定産地(空欄なら伝票の産地欄を使います)"
                     placeholder={info.origin ? `産地(伝票:${info.origin})` : "産地(指定なし)"}
-                    className="border border-gray-300 rounded px-1.5 py-1 text-sm flex-1 min-w-0 sm:flex-none sm:w-40"
+                    className="border border-gray-300 rounded px-1.5 py-1 text-xl sm:text-sm flex-1 min-w-0 sm:flex-none sm:w-40"
                   />
                   {changed && r.id !== null && (
                     <span className="order-last w-full text-xs text-blue-700 sm:order-none sm:w-auto">
