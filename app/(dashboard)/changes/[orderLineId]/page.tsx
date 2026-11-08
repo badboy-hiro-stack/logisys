@@ -47,7 +47,7 @@ type LogRow = {
   m_users: { user_name: string } | { user_name: string }[] | null;
 };
 
-const NUM = "border border-gray-300 rounded px-1.5 py-1 text-xl sm:text-sm font-medium sm:font-normal text-right";
+const NUM = "border border-gray-300 rounded px-1.5 py-1 text-2xl sm:text-sm font-medium sm:font-normal text-right";
 
 export default function ChangeEditPage() {
   const supabase = createClient();
@@ -252,7 +252,7 @@ export default function ChangeEditPage() {
       <Link href="/changes" className="text-sm text-blue-600">
         ← 対象選択に戻る
       </Link>
-      <h1 className="text-lg font-semibold mt-2 mb-1">当日変更:編集</h1>
+      <h1 className="text-lg sm:text-sm font-semibold mt-2 mb-1">当日変更:編集</h1>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 text-base sm:text-sm">
         <div className="text-base sm:text-xs text-gray-500">
