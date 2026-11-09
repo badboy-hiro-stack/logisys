@@ -24,8 +24,8 @@ type StoreRow = {
   dispatched: boolean;
   dispatched_at: string | null;
 };
-type WaitingRow = { supplier_name: string; item_name: string; status: string };
-type ShortageRow = { supplier_name: string; item_name: string };
+type WaitingRow = { supplier_name: string; item_name: string; spec?: string; status: string };
+type ShortageRow = { supplier_name: string; item_name: string; spec?: string };
 type Summary = {
   suppliers: SupplierRow[];
   stores: StoreRow[];
@@ -294,7 +294,10 @@ export default function ProgressPage() {
                     {data.waiting.map((w, i) => (
                       <li key={i} className="py-1.5 flex gap-2">
                         <span className="text-xs text-gray-500 w-28 shrink-0">{w.supplier_name}</span>
-                        <span className="flex-1">{w.item_name}</span>
+                        <span className="flex-1">
+                          {w.item_name}
+                          {w.spec ? <span className="ml-2 text-xs text-gray-500">{w.spec}</span> : null}
+                        </span>
                         <span
                           className={
                             "text-xs " + (w.status === "一部入荷" ? "text-amber-600" : "text-gray-500")
@@ -318,7 +321,10 @@ export default function ProgressPage() {
                   {data.shortage_items.map((w, i) => (
                     <li key={i} className="py-1.5 flex gap-2">
                       <span className="text-xs text-gray-500 w-28 shrink-0">{w.supplier_name}</span>
-                      <span>{w.item_name}</span>
+                      <span>
+                        {w.item_name}
+                        {w.spec ? <span className="ml-2 text-xs text-gray-500">{w.spec}</span> : null}
+                      </span>
                     </li>
                   ))}
                 </ul>
