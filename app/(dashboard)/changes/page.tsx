@@ -192,7 +192,7 @@ export default function ChangesPage() {
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="text-base font-medium text-gray-700 whitespace-nowrap">{r.total_display ?? ""}</div>
+                      <div className="text-xl font-medium text-gray-700 whitespace-nowrap">{r.total_display ?? ""}</div>
                       <div className="text-base font-medium text-gray-500 whitespace-nowrap">{r.arrival_status}</div>
                     </div>
                   </div>

@@ -13,6 +13,7 @@ type LineInfo = {
   order_line_id: number;
   item_code: string;
   origin: string | null;
+  spec: string | null;
   total_display: string | null;
   arrival_status: string;
   m_items: { item_name: string } | { item_name: string }[] | null;
@@ -72,7 +73,7 @@ export default function ChangeEditPage() {
       supabase
         .from("t_order_lines")
         .select(
-          "order_line_id, item_code, origin, total_display, arrival_status, m_items(item_name), t_orders(target_date, m_suppliers(supplier_name))"
+          "order_line_id, item_code, spec, origin, total_display, arrival_status, m_items(item_name), t_orders(target_date, m_suppliers(supplier_name))"
         )
         .eq("order_line_id", lineId)
         .maybeSingle(),
@@ -258,7 +259,14 @@ export default function ChangeEditPage() {
         <div className="text-base sm:text-xs text-gray-500">
           {supplierName}　納品日 {ord?.target_date ?? ""}　{info.item_code}
         </div>
-        <div className="text-2xl sm:text-base font-semibold">{itemName}</div>
+        <div className="text-2xl font-semibold">
+          {itemName}
+          {info.spec ? (
+            <span className="ml-2 text-xl sm:text-xs font-normal text-gray-700 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
+              {info.spec}
+            </span>
+          ) : null}
+        </div>
         <div className="text-gray-600 mt-1">
           {info.origin ? <>伝票の産地: <b>{info.origin}</b>　</> : null}
           全店計(現在): <b>{info.total_display ?? "-"}</b>　入荷状況: {info.arrival_status}
