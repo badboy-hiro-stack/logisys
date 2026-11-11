@@ -524,8 +524,13 @@ export default function OutboundStorePage() {
                       {r.spec ? ` ${r.spec}` : ""}
                     </span>
                     <span className="block text-xs text-gray-400">
+                      {r.origin ? ` 産地:${r.origin}` : ""}
+                    </span>
+                    <span className="block text-xs text-gray-400">
                       {r.supplier_name} / {r.label_id.slice(-4)}
-                      {r.origin ? ` / 産地:${r.origin}` : ""}
+                    </span>
+                    <span className="block text-xs text-gray-400">
+                      {r.supplier_code}-{r.target_date.replace(/-/g, "").slice(2)}-{r.label_id.slice(-4)}
                     </span>
                   </span>
                   <span className="font-medium">
