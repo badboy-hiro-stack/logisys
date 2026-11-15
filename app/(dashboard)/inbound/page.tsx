@@ -38,6 +38,28 @@ const STATUS_STYLE: Record<string, string> = {
   欠品確定: "text-red-600",
 };
 
+// 直前に選んだ出荷元・納品日の記憶(ブラウザのタブ内だけ。その日のうちだけ有効)
+const SELECTION_KEY = "logisys:inbound:selection";
+type SavedSelection = { supplier: string; date: string; day: string };
+const todayStr = () => new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD(端末の日付)
+function loadSelection(): SavedSelection | null {
+  try {
+    const raw = window.sessionStorage.getItem(SELECTION_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as SavedSelection;
+    return v.day === todayStr() ? v : null; // 日付が変わっていたら使わない
+  } catch {
+    return null;
+  }
+}
+function saveSelection(supplier: string, date: string) {
+  try {
+    window.sessionStorage.setItem(SELECTION_KEY, JSON.stringify({ supplier, date, day: todayStr() }));
+  } catch {
+    /* 保存できなくても動作に影響なし */
+  }
+}
+
 export default function InboundListPage() {
   const supabase = createClient();
 
@@ -64,13 +86,23 @@ export default function InboundListPage() {
       const list = (sup ?? []) as Supplier[];
       setSuppliers(list);
       const last = ((latest ?? []) as { supplier_code: string; target_date: string }[])[0];
-      setSupplierCode(last?.supplier_code ?? list[0]?.supplier_code ?? "");
-      setTargetDate(last?.target_date ?? new Date().toISOString().slice(0, 10));
+      const saved = loadSelection();
+      const savedOk = !!saved && list.some((s) => s.supplier_code === saved.supplier);
+      setSupplierCode(savedOk ? saved!.supplier : last?.supplier_code ?? list[0]?.supplier_code ?? "");
+      setTargetDate(
+        savedOk && saved!.date ? saved!.date : last?.target_date ?? new Date().toISOString().slice(0, 10)
+      );
       setReady(true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 出荷元・納品日を選び直したら、記憶しておく(詳細画面から戻ったときに同じ一覧を開く)
+  useEffect(() => {
+    if (!ready || !supplierCode || !targetDate) return;
+    saveSelection(supplierCode, targetDate);
+  }, [ready, supplierCode, targetDate]);
+  
   // 仕入先・納品日が決まったら、その発注明細(品目の一覧)を取得する
   useEffect(() => {
     if (!ready || !supplierCode || !targetDate) return;
@@ -139,7 +171,7 @@ export default function InboundListPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <div className="flex flex-wrap gap-4 items-end mb-4">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">出荷元(仕入先)</label>
+            <label className="block text-base sm:text-sm font-medium sm:font-normal text-gray-500 mb-1">出荷元(仕入先)</label>
             <select
               value={supplierCode}
               onChange={(e) => setSupplierCode(e.target.value)}
@@ -153,12 +185,12 @@ export default function InboundListPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">納品日</label>
+            <label className="block text-base sm:text-sm font-medium sm:font-normal text-gray-500 mb-1">納品日</label>
             <input
               type="date"
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-base sm:text-sm font-medium sm:font-normal"
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-600 pb-1.5 cursor-pointer">
