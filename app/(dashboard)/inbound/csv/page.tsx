@@ -571,6 +571,14 @@ export default function CsvImportPage() {
       if (orderCount > 0) parts.push(`${orderCount}件の発注を新しく登録`);
       if (lineCount > 0) parts.push(`${lineCount}品目を追加`);
       if (addedStoreRows > 0) parts.push(`登録済みの品目に${addedStoreRows}件の店舗数量を追加`);
+      if (parts.length > 0) {
+        // 取り込んだあとは、記憶した出荷元ではなく、いま取り込んだ発注の一覧を開く
+        try {
+          window.sessionStorage.removeItem("logisys:inbound:selection");
+        } catch {
+          /* 何もしない */
+        }
+      }
       setDone((parts.length > 0 ? parts.join("、") : "追加するデータはありませんでした") + "しました");
       await loadOrders();
       if (parsedRows) await analyze(parsedRows);

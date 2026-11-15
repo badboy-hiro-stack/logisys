@@ -139,7 +139,7 @@ export default function InboundListPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <div className="flex flex-wrap gap-4 items-end mb-4">
           <div>
-            <label className="block text-base sm:text-sm font-medium sm:font-normal text-gray-500 mb-1">出荷元(仕入先)</label>
+            <label className="block text-xs text-gray-500 mb-1">出荷元(仕入先)</label>
             <select
               value={supplierCode}
               onChange={(e) => setSupplierCode(e.target.value)}
@@ -153,12 +153,12 @@ export default function InboundListPage() {
             </select>
           </div>
           <div>
-            <label className="block text-base sm:text-sm font-medium sm:font-normal text-gray-500 mb-1">納品日</label>
+            <label className="block text-xs text-gray-500 mb-1">納品日</label>
             <input
               type="date"
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2 py-1.5 text-base sm:text-sm font-medium sm:font-normal"
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-600 pb-1.5 cursor-pointer">

@@ -44,6 +44,7 @@ type OcrLine = {
   store_qty: StoreQty[];
   total_display: string;
   total_qty: number;
+  other_total?: number; // 他社配達店舗分の個数合計(検算専用。DBには保存しない)
 };
 type OcrResultRaw = {
   supplier_code: string | null;
@@ -355,7 +356,7 @@ export default function CapturePage() {
             origin: line.origin || null,
             spec: line.spec || null,
             total_display: line.total_display,
-            total_qty: line.total_qty,
+            total_qty: sumQty(line.store_qty),
           })
           .select("order_line_id")
           .single();
@@ -375,6 +376,12 @@ export default function CapturePage() {
         }
       }
 
+      try {
+        window.sessionStorage.removeItem("logisys:inbound:selection");
+      } catch {
+        /* 何もしない */
+      }
+      
       router.push("/inbound");
     } catch (err) {
       // Supabaseのエラーは Error ではなく {message, details, hint} 形式のオブジェクトで返ってくる
@@ -511,7 +518,8 @@ export default function CapturePage() {
             <div className="space-y-4">
               {result.lines.map((line, li) => {
                 const computedTotal = sumQty(line.store_qty);
-                const mismatch = computedTotal !== line.total_qty;
+                const otherTotal = line.other_total ?? 0;
+                const mismatch = computedTotal + otherTotal !== line.total_qty;
                 const dups = duplicateStoreCodes(line.store_qty);
                 const hasProblem = mismatch || dups.length > 0;
                 return (
@@ -621,7 +629,14 @@ export default function CapturePage() {
 
                     {mismatch && (
                       <p className="text-xs text-red-600 font-medium mb-2">
-                        ⚠ 店舗別の合計は{computedTotal}。全店計({line.total_qty})と不一致
+                        ⚠ 店舗別の合計は{computedTotal}
+                        {otherTotal > 0 && `(他社配達店舗分${otherTotal}を含めて${computedTotal + otherTotal})`}
+                        。全店計({line.total_qty})と不一致
+                      </p>
+                    )}
+                    {!mismatch && otherTotal > 0 && (
+                      <p className="text-xs text-gray-500 mb-2">
+                        他社配達店舗分{otherTotal}は取込対象外(全店計とは一致)
                       </p>
                     )}
                     {dups.length > 0 && (
