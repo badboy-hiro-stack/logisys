@@ -143,7 +143,7 @@ export default function InboundListPage() {
             <select
               value={supplierCode}
               onChange={(e) => setSupplierCode(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-2xl sm:text-sm font-medium sm:font-normal"
             >
               {suppliers.map((s) => (
                 <option key={s.supplier_code} value={s.supplier_code}>
