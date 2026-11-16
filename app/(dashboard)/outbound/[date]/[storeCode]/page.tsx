@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -40,6 +40,9 @@ export default function OutboundStorePage() {
   const [confirming, setConfirming] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false); // QR読み取り後、カメラを一時停止している間は true
+  const lockRef = useRef(false); // 結果の確認中は、新しい読み取りを受け付けない
+  const resumeRef = useRef(false); // 閉じたときにカメラを再開するか(カメラで読み取ったときだけ true)
 
   // ---- データの取得 ----------------------------------------------------
   const loadAll = useCallback(async () => {
@@ -112,10 +115,10 @@ export default function OutboundStorePage() {
 
   // ---- ラベルの照合(読み取り・手入力) ---------------------------------
   const lookup = useCallback(
-    async (raw: string) => {
+    async (raw: string): Promise<boolean> => {
       // 全角で入力されても照合できるように、半角に直す
       const id = raw.normalize("NFKC").trim();
-      if (!id) return;
+      if (!id) return false;
       setActionError(null);
       setLooking(true);
       try {
@@ -127,7 +130,7 @@ export default function OutboundStorePage() {
         if (error) throw error;
         if (!data) {
           setCurrent({ kind: "not_found", id });
-          return;
+          return true;
         }
         const label = data as unknown as LabelView;
         if (label.store_code !== storeCode) {
@@ -149,8 +152,10 @@ export default function OutboundStorePage() {
         } else {
           setCurrent({ kind: "ready", label });
         }
+        return true;
       } catch (e) {
         setActionError("ラベルの照合に失敗しました: " + errorText(e));
+        return false;
       } finally {
         setLooking(false);
       }
@@ -158,10 +163,33 @@ export default function OutboundStorePage() {
     [supabase, storeCode, date]
   );
 
-  function submitManual() {
+  // 結果の表示を閉じる。カメラで読み取った場合だけ、カメラを再開する
+  function clearCurrent() {
+    setCurrent(null);
+    lockRef.current = false;
+    if (resumeRef.current) setPaused(false);
+    resumeRef.current = false;
+  }
+
+  // カメラで読み取ったとき:すぐにカメラを止めて、内容を確認する
+  async function handleScan(text: string) {
+    if (lockRef.current) return; // 確認中は、別のQRを読み込まない
+    lockRef.current = true;
+    resumeRef.current = true;
+    setPaused(true);
+    const ok = await lookup(text);
+    if (!ok) clearCurrent(); // 照合に失敗したときは、カメラを再開する
+  }
+
+  // 手入力のとき:閉じても、カメラは再開しない
+  async function submitManual() {
     const v = manual;
+    if (!v.trim()) return;
     setManual("");
-    lookup(v);
+    lockRef.current = true;
+    resumeRef.current = false;
+    const ok = await lookup(v);
+    if (!ok) lockRef.current = false;
   }
 
   // ---- 積込確定 --------------------------------------------------------
@@ -184,7 +212,7 @@ export default function OutboundStorePage() {
       };
       if (res.result === "ok") {
         setFlash(`確定しました:${label.item_name} ${label.qty_text ?? `${label.pack_size}×${label.case_count}`}`);
-        setCurrent(null);
+        clearCurrent();
       } else if (res.result === "already_confirmed") {
         // 他の担当者が先に確定していた
         setCurrent({
@@ -468,7 +496,10 @@ export default function OutboundStorePage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold">ラベルを読み取る</h2>
             <button
-              onClick={() => setCameraOn((v) => !v)}
+              onClick={() => {
+                setCameraOn((v) => !v);
+                setPaused(false);
+              }}
               className="text-sm border border-gray-300 rounded-lg px-3 py-1.5"
             >
               {cameraOn ? "カメラを止める" : "カメラを起動"}
@@ -476,7 +507,7 @@ export default function OutboundStorePage() {
           </div>
           {cameraOn && (
             <div className="mb-3">
-              <QrScanner onScan={lookup} />
+              <QrScanner onScan={handleScan} paused={paused} />
             </div>
           )}
           <div className="flex gap-2">
@@ -501,7 +532,18 @@ export default function OutboundStorePage() {
         </div>
       )}
 
-      {current && <div className="mb-4">{renderCurrent(current)}</div>}
+      {current && (
+        <div className="mb-4">
+          {renderCurrent(current)}
+          <button
+            onClick={clearCurrent}
+            disabled={confirming}
+            className="mt-3 w-full border border-gray-300 bg-white rounded-xl py-3 text-base font-medium disabled:opacity-50"
+          >
+            {current.kind === "ready" ? "キャンセル" : "閉じる"}
+          </button>
+        </div>
+      )}
 
       {/* この店舗のラベルの一覧 */}
       {total > 0 && (
