@@ -11,22 +11,41 @@ import jsQR from "jsqr";
 //  1) 端末標準のQR読み取り(BarcodeDetector)が使える場合はそれを優先(速くて小さなQRに強い)
 //  2) 使えない端末(iPhoneなど)では jsQR で読み取る(縮小せず、高解像度で解析)
 //
+// 追加した機能:
+//  ・paused=true の間は、カメラを完全に停止する(誤って別のQRを読み込まないため)。
+//    paused が false に戻ると、カメラを自動で再起動する。
+//  ・端末がライト(トーチ)の制御に対応している場合だけ、ライトのON/OFFボタンを表示する。
+//    (Android の Chrome は対応する機種が多い。対応していない端末では、ボタンは出ない)
+//
 // ※ スマートフォンでカメラを使うには、HTTPS(または localhost)での接続が必要。
 
 type BarcodeDetectorLike = {
   detect: (source: CanvasImageSource) => Promise<{ rawValue: string }[]>;
 };
 
-export default function QrScanner({ onScan }: { onScan: (text: string) => void }) {
+export default function QrScanner({
+  onScan,
+  paused = false,
+}: {
+  onScan: (text: string) => void;
+  paused?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const onScanRef = useRef(onScan);
+  const trackRef = useRef<MediaStreamTrack | null>(null);
+  const torchOnRef = useRef(false); // ライトをつけたい状態(カメラを再起動しても引き継ぐ)
   const [error, setError] = useState<string | null>(null);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
 
   useEffect(() => {
     onScanRef.current = onScan;
   }, [onScan]);
 
   useEffect(() => {
+    // 一時停止中は、カメラを起動しない(前の状態の後始末で、カメラは止まっている)
+    if (paused) return;
+
     let stopped = false;
     let stream: MediaStream | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -70,9 +89,11 @@ export default function QrScanner({ onScan }: { onScan: (text: string) => void }
           audio: false,
         });
 
+        const track = stream.getVideoTracks()[0];
+        trackRef.current = track;
+
         // 対応していれば、連続オートフォーカスにする(小さなQRをはっきり映すため)
         try {
-          const track = stream.getVideoTracks()[0];
           const caps = (track.getCapabilities?.() ?? {}) as { focusMode?: string[] };
           if (caps.focusMode?.includes("continuous")) {
             await track.applyConstraints({
@@ -81,6 +102,24 @@ export default function QrScanner({ onScan }: { onScan: (text: string) => void }
           }
         } catch {
           // 対応していない端末では何もしない
+        }
+
+        // ライト(トーチ)に対応しているか調べる。対応していれば、ボタンを表示する
+        try {
+          const caps = (track.getCapabilities?.() ?? {}) as { torch?: boolean };
+          if (caps.torch) {
+            setTorchSupported(true);
+            // 再起動のときは、直前のライトの状態を引き継ぐ
+            if (torchOnRef.current) {
+              await track.applyConstraints({
+                advanced: [{ torch: true } as unknown as MediaTrackConstraintSet],
+              });
+            }
+          } else {
+            setTorchSupported(false);
+          }
+        } catch {
+          setTorchSupported(false);
         }
 
         const video = videoRef.current;
@@ -135,7 +174,8 @@ export default function QrScanner({ onScan }: { onScan: (text: string) => void }
             if (code && code.data) found = code.data;
           }
 
-          if (found) emit(found);
+          // 読み取り中に停止されていたら、結果は捨てる
+          if (found && !stopped) emit(found);
         } finally {
           busy = false;
         }
@@ -149,8 +189,26 @@ export default function QrScanner({ onScan }: { onScan: (text: string) => void }
       stopped = true;
       if (timer) clearTimeout(timer);
       if (stream) stream.getTracks().forEach((t) => t.stop());
+      trackRef.current = null;
     };
-  }, []);
+  }, [paused]);
+
+  // ライトのON/OFFを切り替える
+  async function toggleTorch() {
+    const track = trackRef.current;
+    if (!track) return;
+    const next = !torchOnRef.current;
+    try {
+      await track.applyConstraints({
+        advanced: [{ torch: next } as unknown as MediaTrackConstraintSet],
+      });
+      torchOnRef.current = next;
+      setTorchOn(next);
+    } catch {
+      // 切り替えられない端末では、ボタンを隠す
+      setTorchSupported(false);
+    }
+  }
 
   return (
     <div>
@@ -159,9 +217,28 @@ export default function QrScanner({ onScan }: { onScan: (text: string) => void }
       ) : (
         <div className="relative rounded-lg overflow-hidden bg-black aspect-[4/3] max-w-md">
           <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-2/3 aspect-square border-2 border-white/80 rounded-lg" />
-          </div>
+          {!paused && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-2/3 aspect-square border-2 border-white/80 rounded-lg" />
+            </div>
+          )}
+          {paused && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white text-base">
+              カメラ停止中
+            </div>
+          )}
+          {!paused && torchSupported && (
+            <button
+              type="button"
+              onClick={toggleTorch}
+              className={
+                "absolute top-2 right-2 rounded-full px-4 py-2 text-base font-medium shadow " +
+                (torchOn ? "bg-yellow-300 text-black" : "bg-black/60 text-white border border-white/60")
+              }
+            >
+              ライト {torchOn ? "ON" : "OFF"}
+            </button>
+          )}
         </div>
       )}
     </div>
