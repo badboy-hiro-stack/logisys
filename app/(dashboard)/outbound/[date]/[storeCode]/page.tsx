@@ -492,7 +492,7 @@ export default function OutboundStorePage() {
 
       {/* 読み取り・手入力(未確定のラベルが残っているとき) */}
       {!complete && total > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+        <div className={"bg-white border border-gray-200 rounded-xl p-4 mb-4" + (current ? " hidden" : "")}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold">ラベルを読み取る</h2>
             <button
