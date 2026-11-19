@@ -14,8 +14,9 @@ import jsQR from "jsqr";
 // 追加した機能:
 //  ・paused=true の間は、カメラを完全に停止する(誤って別のQRを読み込まないため)。
 //    paused が false に戻ると、カメラを自動で再起動する。
-//  ・端末がライト(トーチ)の制御に対応している場合だけ、ライトのON/OFFボタンを表示する。
-//    (Android の Chrome は対応する機種が多い。対応していない端末では、ボタンは出ない)
+//  ・ライト(トーチ)のON/OFFボタンを表示する。
+//    端末が「対応」と申告していなくても(Windowsなど)、試しに表示する。
+//    押して制御できなかった場合は、メッセージを出してボタンを隠す。
 //
 // ※ スマートフォンでカメラを使うには、HTTPS(または localhost)での接続が必要。
 
@@ -37,6 +38,7 @@ export default function QrScanner({
   const [error, setError] = useState<string | null>(null);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [torchMsg, setTorchMsg] = useState<string | null>(null);
 
   useEffect(() => {
     onScanRef.current = onScan;
@@ -104,19 +106,16 @@ export default function QrScanner({
           // 対応していない端末では何もしない
         }
 
-        // ライト(トーチ)に対応しているか調べる。対応していれば、ボタンを表示する
+        // ライト(トーチ)のボタンを表示する。
+        // 端末が「対応」と申告していなくても(Windowsなど)、試しに表示する。
+        // 押して失敗したら、ボタンを隠す
         try {
-          const caps = (track.getCapabilities?.() ?? {}) as { torch?: boolean };
-          if (caps.torch) {
-            setTorchSupported(true);
-            // 再起動のときは、直前のライトの状態を引き継ぐ
-            if (torchOnRef.current) {
-              await track.applyConstraints({
-                advanced: [{ torch: true } as unknown as MediaTrackConstraintSet],
-              });
-            }
-          } else {
-            setTorchSupported(false);
+          setTorchSupported(true);
+          // 再起動のときは、直前のライトの状態を引き継ぐ
+          if (torchOnRef.current) {
+            await track.applyConstraints({
+              advanced: [{ torch: true } as unknown as MediaTrackConstraintSet],
+            });
           }
         } catch {
           setTorchSupported(false);
@@ -204,9 +203,11 @@ export default function QrScanner({
       });
       torchOnRef.current = next;
       setTorchOn(next);
+      setTorchMsg(null);
     } catch {
-      // 切り替えられない端末では、ボタンを隠す
+      // 切り替えられない端末では、ボタンを隠して、理由を表示する
       setTorchSupported(false);
+      setTorchMsg("この端末・ブラウザでは、ライトを制御できませんでした");
     }
   }
 
@@ -238,6 +239,11 @@ export default function QrScanner({
             >
               ライト {torchOn ? "ON" : "OFF"}
             </button>
+          )}
+          {!paused && torchMsg && (
+            <p className="absolute top-2 left-2 right-2 rounded bg-black/70 text-white text-xs px-2 py-1">
+              {torchMsg}
+            </p>
           )}
         </div>
       )}
