@@ -196,6 +196,15 @@ export default function QrScanner({
   async function toggleTorch() {
     const track = trackRef.current;
     if (!track) return;
+
+    // 1. そもそもブラウザがこのカメラをtorch対応と認識しているかチェック
+    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+    if (!('torch' in capabilities)) {
+      setTorchSupported(false);
+      setTorchMsg("ブラウザがこのカメラのライト機能を認識していません（Capabilitiesにtorchなし）");
+      return;
+    }
+
     const next = !torchOnRef.current;
     try {
       await track.applyConstraints({
@@ -204,10 +213,11 @@ export default function QrScanner({
       torchOnRef.current = next;
       setTorchOn(next);
       setTorchMsg(null);
-    } catch {
-      // 切り替えられない端末では、ボタンを隠して、理由を表示する
+    } catch (err: any) {
+      // 具体的なエラー名とメッセージを表示して原因を特定する
+      console.error("Torch error:", err);
       setTorchSupported(false);
-      setTorchMsg("この端末・ブラウザでは、ライトを制御できませんでした");
+      setTorchMsg(`ライト制御失敗 (${err?.name || "Error"}: ${err?.message || ""})`);
     }
   }
 
